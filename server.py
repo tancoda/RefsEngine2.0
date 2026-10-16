@@ -1,4 +1,4 @@
-# server.py -- serves the page (web/) and answers /refs: for crease-pattern vertices, the shortest folding
+# server.py -- serves the page (docs/) and answers /refs: for crease-pattern vertices, the shortest folding
 # sequence in the reference database. Needs only flask. No engine code: the database is plain sqlite.
 #
 #   pip install flask        python server.py        ->  http://127.0.0.1:5000/
@@ -21,7 +21,7 @@ DB = os.environ.get("REFS_DB", str(ROOT / "database/refs/storage/cp_pruned.db"))
 SQRT2 = sqrt(2)
 COORDS = ("px", "qx", "dx", "py", "qy", "dy")
 
-app = Flask(__name__, static_folder="web", static_url_path="")
+app = Flask(__name__, static_folder="docs", static_url_path="")
 
 
 @app.after_request
@@ -156,14 +156,13 @@ def lookup(rows):
     for i, (mx, nx, dx, my, ny, dy) in enumerate(rows):
         user = ((F(mx + dx, 2 * dx), F(nx, 2 * dx)), (F(my + dy, 2 * dy), F(ny, 2 * dy)))   # page [-1,1] -> [0,1]
         z = to_z2_pair(user)
-        if symmetric:                                  # one row per set of 8 copies; g says which copies the node holds
+        if symmetric:                                  # the stored copy is the smallest of the 8; g says how it was turned
             copies = images(z)
             key = min(copies)
+            h = copies.index(key)
             hit = con.execute(COLUMNS.format(", g"), key).fetchone()
             if hit:
-                held = {c for j, c in enumerate(images(key)) if hit[2] >> j & 1}
-                k = next(k for k, c in enumerate(copies) if c in held)       # the first one the big file would have tried
-                out[str(i)] = sequence(con, hit[1], forwards[k])
+                out[str(i)] = sequence(con, hit[1], lambda x, y, g=hit[2]: forwards[h](*inverses[g](x, y)))
             continue
         best = None
         for k, key in enumerate(images(z)):

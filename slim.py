@@ -103,7 +103,7 @@ def main():
 
     say(f"STEP 2 of 4: turning every vertex into its smallest rotated / mirrored copy")
     label = "step 2"
-    con.execute(f"CREATE TEMP TABLE turned({KEY}, m, mask)")
+    con.execute(f"CREATE TEMP TABLE turned({KEY}, m)")
     cursor, done, began, last = con.execute(f"SELECT {KEY}, m FROM once"), 0, time.time(), time.time()
     while True:
         batch = cursor.fetchmany(100000)
@@ -113,9 +113,8 @@ def main():
         for *z, m in batch:
             c = copies(z)
             smallest = min(c)
-            mask = sum(1 << j for j, x in enumerate(copies(smallest)) if x == tuple(z))   # which copies of the smallest are this vertex
-            rows.append((*smallest, m, mask))
-        con.executemany("INSERT INTO turned VALUES (?,?,?,?,?,?,?,?)", rows)
+            rows.append((*smallest, m * 8 + c.index(smallest)))     # which turn it was: the server undoes it
+        con.executemany("INSERT INTO turned VALUES (?,?,?,?,?,?,?)", rows)
         done += len(batch)
         if time.time() - last >= min(BEAT, 5) or done == total:
             last = time.time()
@@ -128,31 +127,10 @@ def main():
 
     step("STEP 3 of 4: writing the vertex table", f"""
         CREATE TABLE s.vertex_index({KEY}, depth INTEGER, node_id INTEGER, g INTEGER, PRIMARY KEY({KEY})) WITHOUT ROWID""")
-    # one row per set of 8 copies: its shallowest node, and "g" = which of the copies that node holds (a bit for each of the 8)
-    label = "merging the copies"
-    say("   merging the copies (sqlite sorts first, so it is quiet for a while)...")
-    began, last, written, pending = time.time(), time.time(), 0, []
-    def flush(group):
-        key, best, mask = group
-        pending.append((*key, best // B, best % B, mask))
-    group = None
-    for *key, m, mask in con.execute(f"SELECT {KEY}, m, mask FROM turned ORDER BY {KEY}, m"):
-        key = tuple(key)
-        if group is None or group[0] != key:
-            if group: flush(group)
-            group = [key, m, mask]
-        elif m == group[1]:
-            group[2] |= mask
-        if len(pending) >= 50000:
-            con.executemany("INSERT INTO s.vertex_index VALUES (?,?,?,?,?,?,?,?,?)", pending)
-            written += len(pending); pending.clear()
-            if time.time() - last >= min(BEAT, 5):
-                last = time.time()
-                say(f"   {written:,} written so far")
-    if group: flush(group)
-    con.executemany("INSERT INTO s.vertex_index VALUES (?,?,?,?,?,?,?,?,?)", pending)
-    con.commit()
-    say(f"   done in {clock(time.time() - began)}")
+    step("   filling it (merging the copies)", f"""
+        INSERT INTO s.vertex_index
+        SELECT {KEY}, (v / 8) / {B}, (v / 8) % {B}, v % 8
+        FROM (SELECT {KEY}, MIN(m) AS v FROM turned GROUP BY {KEY} ORDER BY {KEY})""", "(quiet again: sorting)")
     kept = con.execute("SELECT COUNT(*) FROM s.vertex_index").fetchone()[0]
     say(f"   {kept:,} vertices kept ({total / max(kept, 1):.1f}x fewer than before merging the rotated / mirrored copies)")
     con.execute("DROP TABLE turned")

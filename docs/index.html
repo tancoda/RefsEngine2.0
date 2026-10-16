@@ -107,10 +107,9 @@
       :root:not([data-embedded]) #cp-canvas { max-width: none; }
     }
     /* inside an iframe the height follows the content, so the shape of the frame can not be used: the width decides */
-    @media (min-width: 900px) {
-      :root[data-embedded] .main { grid-template-columns: 1fr 1fr; align-items: start; }
-      :root[data-embedded] #cp-canvas { max-width: none; }
-    }
+    /* (data-wide is set by the script at the end of the page, with a margin so the layout can not flip back and forth) */
+    :root[data-embedded][data-wide] .main { grid-template-columns: 1fr 1fr; align-items: start; }
+    :root[data-embedded][data-wide] #cp-canvas { max-width: none; }
     /* dark mode: the drawing is inverted (the paper becomes dark; hues turned back so red / blue stay themselves) */
     :root[data-theme="dark"] svg .art { filter: invert(.9) hue-rotate(180deg); }
 
@@ -194,15 +193,24 @@
     // the page has stopped changing for a moment. (A frame that follows every pixel of a page that follows the frame's
     // width -- the scroll bar of the page around it changes that width -- keeps jumping.)
     if ("embedded" in document.documentElement.dataset) {
-      var sent = 0, wait = null;
+      var root = document.documentElement, sent = 0, wait = null, shrink = null;
+      // side by side from 900 px wide; back to stacked only below 850 (a scroll bar appearing must not flip the layout)
+      var layout = function () {
+        var w = root.clientWidth;
+        if (w >= 900) root.setAttribute("data-wide", ""); else if (w < 850) root.removeAttribute("data-wide");
+      };
+      var send = function (h) { sent = h; parent.postMessage({ refsHeight: h }, "*"); };
       var report = function () {
+        layout();
         var h = Math.ceil(Math.ceil(document.body.getBoundingClientRect().height) / 40) * 40;
-        if (h === sent || (h < sent && sent - h < 120)) return;
-        sent = h;
-        parent.postMessage({ refsHeight: h }, "*");
+        if (h >= sent) { clearTimeout(shrink); shrink = null; if (h > sent) send(h); return; }
+        // shorter: only believe it if it stays shorter for 3 seconds
+        if (sent - h >= 120 && !shrink) shrink = setTimeout(function () { shrink = null; send(Math.ceil(Math.ceil(document.body.getBoundingClientRect().height) / 40) * 40); }, 3000);
       };
       var tell = function () { clearTimeout(wait); wait = setTimeout(report, 300); };
+      layout();
       new ResizeObserver(tell).observe(document.body);
+      window.addEventListener("resize", tell);
       window.addEventListener("load", tell);
     }
   </script>

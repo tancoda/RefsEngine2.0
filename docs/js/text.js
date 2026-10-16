@@ -32,7 +32,12 @@ export const TEXT = {
   about: [
     "Refs Engine 2.0",
     "HOW TO USE",
-    "Upload a crease pattern as .fold or .cp.",
+    "FILE UPLOAD",
+    "FILE UPLOAD",
+    "FILE UPLOAD",
+    "FILE UPLOAD",
+    "FILE UPLOAD",
+    "FILE UPLOAD",
     "",
     "Each line in this list is its own paragraph.",
   ],

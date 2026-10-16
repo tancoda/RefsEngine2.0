@@ -102,6 +102,11 @@
     .main { display: grid; gap: .9rem; }
     .main > .card, .main > #refs-slot { margin-top: .9rem; min-width: 0; }
     #refs-slot > .card { margin-top: 0; }
+    #refs-target { min-height: 2.8em; }   /* room for the two lines (x, y) before they appear */
+    /* inside an iframe the About / Info panels float over the page instead of pushing it down: the page never changes height when they open */
+    :root[data-embedded] details.card { position: relative; }
+    :root[data-embedded] details.card > .panel { position: absolute; left: -1px; right: -1px; top: 100%; z-index: 20; max-height: 24rem; overflow: auto;
+      background: var(--card); border: 1px solid var(--line); border-radius: 0 0 10px 10px; box-shadow: var(--shadow); padding: .5rem 1rem .75rem; }
     /* side by side when the window is wider than tall; below otherwise */
     @media (min-aspect-ratio: 1/1) {
       :root:not([data-embedded]) .main { grid-template-columns: 1fr 1fr; align-items: start; }
@@ -143,17 +148,19 @@
   </div>
 
   <details id="about" class="card"><summary id="about-summary">About</summary>
-    <div id="about-body"></div>
+    <div class="panel"><div id="about-body"></div></div>
   </details>
 
   <details id="info" class="card"><summary><span id="info-summary">Info</span><span id="tldr"></span>
     <button id="wiggle-btn" type="button" hidden>Wiggle</button></summary>
+    <div class="panel">
     <div id="status">No file loaded yet.</div>
     <details hidden><summary id="problems-summary">Problems</summary><pre id="problem-list"></pre></details>
     <div id="wiggle-box" hidden>
       <div id="wiggle-msg"></div>
       <button id="wiggle-cp" type="button" hidden title="The wiggled pattern, scaled to -200..200">Download .cp</button>
       <button id="wiggle-fold" type="button" hidden title="The wiggled pattern, scaled to -200..200">Download .fold</button>
+    </div>
     </div>
   </details>
 

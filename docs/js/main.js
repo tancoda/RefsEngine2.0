@@ -293,32 +293,48 @@ async function computeRefs() {
 // REFS_MAX_TILES diagrams (the same kind of tiles, with the longest caption) is measured at the current width.
 const REFS_MAX_FOLDS = 8;               // the longest sequence there is
 const REFS_MAX_TILES = REFS_MAX_FOLDS + 1;   // one diagram per fold, plus the last one with the target
-function reserveRefsHeight() {
-  const box = $("refsWorkspace");
-  if (!("embedded" in document.documentElement.dataset) || !box.clientWidth) return;     // (only inside an iframe)
+// The room the references panel needs is set aside as soon as the page loads (not when the panel fills):
+//  - the invisible slot around the card (inside an iframe only) is as tall as the longest sequence needs;
+//  - the card itself is at least as tall as the pattern's card when they sit side by side, else at least one diagram tall.
+function tilesHeight(box, count) {
   const probe = document.createElement("div");
   probe.id = "refsWorkspace";           // (same id: the same styles)
   probe.setAttribute("aria-hidden", "true");
   probe.style.cssText = `position:absolute;visibility:hidden;pointer-events:none;width:${box.clientWidth}px;margin:0`;
   const longest = Object.values(T.steps).reduce((a, b) => (b.length > a.length ? b : a), "");
-  probe.innerHTML = `<div class="step"><svg viewBox="0 0 220 220"></svg><div class="caption">${longest}</div></div>`.repeat(REFS_MAX_TILES);
+  probe.innerHTML = `<div class="step"><svg viewBox="0 0 220 220"></svg><div class="caption">${longest}</div></div>`.repeat(count);
   box.after(probe);
-  const card = $("refs-view");           // the invisible slot around the card gets the room; the card itself stays as tall as its content
-  $("refs-slot").style.minHeight = `${probe.offsetHeight + card.offsetHeight - box.offsetHeight}px`;
+  const height = probe.offsetHeight;
   probe.remove();
+  return height;
 }
-let reserveTimer = null, reservedFor = 0;
-new ResizeObserver(() => {                         // (the width decides how many diagrams fit in a row; it settles after loading too)
-  const width = $("refsWorkspace").clientWidth;
-  if (width === reservedFor) return;
-  reservedFor = width;
+function reserveRefsHeight() {
+  const box = $("refsWorkspace"), card = $("refs-view"), slot = $("refs-slot");
+  if (!box.clientWidth) return;
+  card.style.minHeight = ""; box.style.minHeight = "";                    // (measure the natural size first)
+  const extras = card.offsetHeight - box.offsetHeight;                    // heading, target text, padding
+  const wide = getComputedStyle(document.querySelector(".main")).gridTemplateColumns.trim().split(/\s+/).length > 1;
+  const minimum = wide ? $("cp-canvas").closest(".card").offsetHeight : extras + tilesHeight(box, 1);
+  card.style.minHeight = `${minimum}px`;
+  slot.style.minHeight = ("embedded" in document.documentElement.dataset)
+    ? `${Math.max(minimum, extras + tilesHeight(box, REFS_MAX_TILES))}px` : "";
+}
+let reserveTimer = null, reservedFor = "";
+const reserveSoon = () => {
+  const key = `${$("refsWorkspace").clientWidth}x${$("cp-canvas").closest(".card").offsetHeight}`;
+  if (key === reservedFor) return;
+  reservedFor = key;
   clearTimeout(reserveTimer);
-  reserveTimer = setTimeout(() => { if (refFound?.length) reserveRefsHeight(); }, 100);
-}).observe($("refsWorkspace"));
+  reserveTimer = setTimeout(reserveRefsHeight, 100);
+};
+new ResizeObserver(reserveSoon).observe($("refsWorkspace"));
+new ResizeObserver(reserveSoon).observe($("cp-canvas").closest(".card"));
+window.addEventListener("load", reserveSoon);
+document.fonts?.ready.then(reserveSoon);
+reserveRefsHeight();
 
 function applyRefs() {
   $("refs-target").textContent = "";
-  $("refs-slot").style.minHeight = "";
   refPick = null; refFound = null; refResults = {}; refOrder = []; refRecommended = null; refCursor = null;
   $("refsWorkspace").replaceChildren();
   if (!refsState) { updateRefsUI(); return; }
@@ -384,3 +400,7 @@ $("refs-recommended").addEventListener("click", () => showRef(refRecommended));
 $("refs-first").addEventListener("click", () => refOrder.length && showRef(refOrder[0].index));
 $("refs-prev").addEventListener("click", () => stepRef(-1));
 $("refs-next").addEventListener("click", () => stepRef(+1));
+
+// About and Info float over the page when embedded, so only one is open at a time (the open one would hide the other's title)
+for (const [one, other] of [["about", "info"], ["info", "about"]])
+  $(one).addEventListener("toggle", () => { if ($(one).open) $(other).open = false; });

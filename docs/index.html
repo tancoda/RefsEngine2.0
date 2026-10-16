@@ -100,7 +100,8 @@
     #cp-canvas { display: block; width: 100%; max-width: 44rem; aspect-ratio: 1; margin: .5rem auto 0; }
     /* the pattern above, the references below; on a screen wider than tall, side by side (pattern left, references right, equal widths) */
     .main { display: grid; gap: .9rem; }
-    .main > .card { margin-top: .9rem; min-width: 0; }
+    .main > .card, .main > #refs-slot { margin-top: .9rem; min-width: 0; }
+    #refs-slot > .card { margin-top: 0; }
     /* side by side when the window is wider than tall; below otherwise */
     @media (min-aspect-ratio: 1/1) {
       :root:not([data-embedded]) .main { grid-template-columns: 1fr 1fr; align-items: start; }
@@ -167,6 +168,7 @@
       <div id="tooltip" hidden></div>
     </div>
 
+    <div id="refs-slot">   <!-- invisible: holds the room the references may need; the card inside is only as tall as its content -->
     <div class="card" id="refs-view">
       <div class="head"><h2 id="refs-heading">References</h2>
         <span class="group">
@@ -183,6 +185,7 @@
       <div id="refs-target"></div>
       <div class="progress" id="refs-progress" hidden><i></i></div>
       <div id="refsWorkspace"></div>
+    </div>
     </div>
   </div>
 

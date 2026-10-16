@@ -291,7 +291,8 @@ async function computeRefs() {
 
 // Inside an iframe the page keeps its height whatever sequence is showing: room is reserved for the longest one expected. A hidden grid of
 // REFS_MAX_TILES diagrams (the same kind of tiles, with the longest caption) is measured at the current width.
-const REFS_MAX_TILES = 9;               // diagrams: one per fold, plus the last one with the target. 8 folds = 9.
+const REFS_MAX_FOLDS = 8;               // the longest sequence there is
+const REFS_MAX_TILES = REFS_MAX_FOLDS + 1;   // one diagram per fold, plus the last one with the target
 function reserveRefsHeight() {
   const box = $("refsWorkspace");
   if (!("embedded" in document.documentElement.dataset) || !box.clientWidth) return;     // (only inside an iframe)
@@ -302,7 +303,8 @@ function reserveRefsHeight() {
   const longest = Object.values(T.steps).reduce((a, b) => (b.length > a.length ? b : a), "");
   probe.innerHTML = `<div class="step"><svg viewBox="0 0 220 220"></svg><div class="caption">${longest}</div></div>`.repeat(REFS_MAX_TILES);
   box.after(probe);
-  box.style.minHeight = `${probe.offsetHeight}px`;
+  const card = $("refs-view");           // the invisible slot around the card gets the room; the card itself stays as tall as its content
+  $("refs-slot").style.minHeight = `${probe.offsetHeight + card.offsetHeight - box.offsetHeight}px`;
   probe.remove();
 }
 let reserveTimer = null, reservedFor = 0;
@@ -316,7 +318,7 @@ new ResizeObserver(() => {                         // (the width decides how man
 
 function applyRefs() {
   $("refs-target").textContent = "";
-  $("refsWorkspace").style.minHeight = "";
+  $("refs-slot").style.minHeight = "";
   refPick = null; refFound = null; refResults = {}; refOrder = []; refRecommended = null; refCursor = null;
   $("refsWorkspace").replaceChildren();
   if (!refsState) { updateRefsUI(); return; }

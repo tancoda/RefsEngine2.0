@@ -35,6 +35,7 @@ export const TEXT = {
     "",
     "# ATTRIBUTIONS",
     "Refs Engine 2.0 is a generalized version of the tool that I developed with Brandon Wong for [Explori 22.5](https://225.designorigami.net/). The It also has my own implementation of Jason Ku's [CP Analyze](https://origamimagiro.github.io/cp_analyze/), and relies on the ideas of Tomohiro Tachi and Eric Demaine: [Degenerative Coordinates in 22.5° Grid System](https://erikdemaine.org/papers/AngularGrid_Origami5/). The term `Wiggler` is a reference to my DavidOrigami's BoxPleatWiggler, which I've just learned a) now accepts 22.5° crease patterns, and b) was itself named in reference to Brandon Wong's Wiggler.",
+    "You can access Refs Engine 1.0 [here](https://tancoda.github.io/22.5_refs_engine/), and the repo for 2.0 [here](https://github.com/tancoda/RefsEngine2.0).",
     "",
     "Travis Nolan",
     "> [Website](https://www.adroitorigami.com)",

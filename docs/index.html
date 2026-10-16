@@ -118,10 +118,16 @@
     .main > .card, .main > #refs-slot { margin-top: .9rem; min-width: 0; }
     #refs-slot > .card { margin-top: 0; }
     #refs-target { min-height: 2.8em; }   /* room for the two lines (x, y) before they appear */
-    /* inside an iframe the About / Info panels float over the page instead of pushing it down: the page never changes height when they open */
-    :root[data-embedded] details.card { position: relative; }
-    :root[data-embedded] details.card > .panel { position: absolute; left: -1px; right: -1px; top: 100%; z-index: 20; max-height: 24rem; overflow: auto;
-      background: var(--card); border: 1px solid var(--line); border-radius: 0 0 10px 10px; box-shadow: var(--shadow); padding: .5rem 1rem .75rem; }
+    /* inside an iframe About and Info are two buttons on one line; each opens a popup over the page (so the page never changes
+       height), with a close button; Escape or a click outside closes it too */
+    .close { display: none; }
+    :root[data-embedded] #panels { display: flex; gap: .5rem; position: relative; margin-top: .4rem; }
+    :root[data-embedded] #panels > details.card { margin-top: 0; padding: .3rem .75rem; flex: 0 0 auto; }
+    :root[data-embedded] #info { flex: 1 1 auto; }
+    :root[data-embedded] #panels summary::before { display: none; }
+    :root[data-embedded] #panels > details.card > .panel { position: absolute; left: 0; right: 0; top: calc(100% + .35rem); z-index: 20; max-height: 24rem; overflow: auto;
+      background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 6px 24px rgba(0,0,0,.45); padding: .6rem 1rem .75rem; }
+    :root[data-embedded] .panel > .close { display: block; float: right; position: sticky; top: 0; margin: 0 0 .3rem .5rem; }
     /* side by side when the window is wider than tall; below otherwise */
     @media (min-aspect-ratio: 1/1) {
       :root:not([data-embedded]) .main { grid-template-columns: 1fr 1fr; align-items: start; }
@@ -163,13 +169,14 @@
     <div id="islands-list"></div>
   </div>
 
+  <div id="panels">
   <details id="about" class="card"><summary id="about-summary">About</summary>
-    <div class="panel"><div id="about-body"></div></div>
+    <div class="panel"><button class="close" type="button" aria-label="Close" title="Close">&#10005;</button><div id="about-body"></div></div>
   </details>
 
   <details id="info" class="card"><summary><span id="info-summary">Info</span><span id="tldr"></span>
     <button id="wiggle-btn" type="button" hidden>Wiggle</button></summary>
-    <div class="panel">
+    <div class="panel"><button class="close" type="button" aria-label="Close" title="Close">&#10005;</button>
     <div id="status">No file loaded yet.</div>
     <details hidden><summary id="problems-summary">Problems</summary><pre id="problem-list"></pre></details>
     <div id="wiggle-box" hidden>
@@ -179,6 +186,7 @@
     </div>
     </div>
   </details>
+  </div>
 
 
   <div class="main">

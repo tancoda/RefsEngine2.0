@@ -449,3 +449,11 @@ $("refs-next").addEventListener("click", () => stepRef(+1));
 // About and Info float over the page when embedded, so only one is open at a time (the open one would hide the other's title)
 for (const [one, other] of [["about", "info"], ["info", "about"]])
   $(one).addEventListener("toggle", () => { if ($(one).open) $(other).open = false; });
+
+// the popups (inside an iframe): the close button, Escape, or a click anywhere outside closes them
+for (const id of ["about", "info"]) $(id).querySelector(".close").addEventListener("click", () => { $(id).open = false; });
+const closePopups = () => { $("about").open = false; $("info").open = false; };
+document.addEventListener("keydown", e => { if (e.key === "Escape" && "embedded" in document.documentElement.dataset) closePopups(); });
+document.addEventListener("click", e => {
+  if ("embedded" in document.documentElement.dataset && !e.target.closest("#panels")) closePopups();
+});

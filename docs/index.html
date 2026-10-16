@@ -95,6 +95,7 @@
     #islands-label small { display: block; margin-top: .2rem; }
     #about-body p, #hint, #status, #wiggle-msg > div, #refs-status, #refs-target, .caption { white-space: pre-line; }   /* so a \n in text.js is a line break */
     #about-body p { margin: .5rem 0; }
+    .group { display: inline-flex; align-items: center; gap: .6rem; white-space: nowrap; }   /* a group of controls moves to the next line as a whole, never split */
     .head { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; min-height: 2rem; }
     #cp-canvas { display: block; width: 100%; max-width: 44rem; aspect-ratio: 1; margin: .5rem auto 0; }
     /* the pattern above, the references below; on a screen wider than tall, side by side (pattern left, references right, equal widths) */
@@ -116,7 +117,7 @@
     /* the references: no boxes, the steps simply sit side by side */
     #refs-target { margin: .35rem 0; font: 14px/1.4 ui-monospace, Consolas, monospace; }
     #refs-count { min-width: 5.5rem; text-align: center; font-variant-numeric: tabular-nums; color: var(--muted); }
-    #refsWorkspace { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: 1.25rem 1.25rem; margin-top: 1rem; }
+    #refsWorkspace { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: 1.25rem 1.25rem; margin-top: 1rem; align-content: start; grid-auto-rows: max-content; }   /* rows keep their natural height and spacing; spare room stays empty at the bottom */
     #refsWorkspace .step svg { display: block; width: 100%; height: auto; aspect-ratio: 1; }
     #refsWorkspace .step .caption { font-size: .85rem; margin-top: .4rem; }
 
@@ -169,11 +170,15 @@
 
     <div class="card" id="refs-view">
       <div class="head"><h2 id="refs-heading">References</h2>
-        <button id="refs-recommended" type="button" title="The suggested vertex: off the paper's edge, with many creases and few folds" disabled>Recommended</button>
-        <button id="refs-first" type="button" disabled>Solution 01</button>
-        <button id="refs-prev" type="button" title="The next simpler vertex" disabled>&#9664;</button>
-        <span id="refs-count"></span>
-        <button id="refs-next" type="button" title="The next more complicated vertex" disabled>&#9654;</button>
+        <span class="group">
+          <button id="refs-recommended" type="button" title="The suggested vertex: off the paper's edge, with many creases and few folds" disabled>Recommended</button>
+          <button id="refs-first" type="button" disabled>Solution 01</button>
+        </span>
+        <span class="group">
+          <button id="refs-prev" type="button" title="The next simpler vertex" disabled>&#9664;</button>
+          <span id="refs-count"></span>
+          <button id="refs-next" type="button" title="The next more complicated vertex" disabled>&#9654;</button>
+        </span>
         <small id="refs-status"></small>
       </div>
       <div id="refs-target"></div>
@@ -185,8 +190,18 @@
   <script type="module" src="js/main.js"></script>
   <script>
     // Inside an iframe: tell the page that holds us how tall we are, so the frame can grow to fit (see the embed snippet).
+    // Calm on purpose: the height is rounded up to a multiple of 40, small shrinks are ignored, and nothing is sent until
+    // the page has stopped changing for a moment. (A frame that follows every pixel of a page that follows the frame's
+    // width -- the scroll bar of the page around it changes that width -- keeps jumping.)
     if ("embedded" in document.documentElement.dataset) {
-      var tell = function () { parent.postMessage({ refsHeight: Math.ceil(document.body.getBoundingClientRect().height) }, "*"); };
+      var sent = 0, wait = null;
+      var report = function () {
+        var h = Math.ceil(Math.ceil(document.body.getBoundingClientRect().height) / 40) * 40;
+        if (h === sent || (h < sent && sent - h < 120)) return;
+        sent = h;
+        parent.postMessage({ refsHeight: h }, "*");
+      };
+      var tell = function () { clearTimeout(wait); wait = setTimeout(report, 300); };
       new ResizeObserver(tell).observe(document.body);
       window.addEventListener("load", tell);
     }

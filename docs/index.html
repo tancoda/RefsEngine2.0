@@ -10,7 +10,12 @@
     (function () {
       var theme = null;
       try { theme = localStorage.getItem("theme"); } catch (e) {}
-      if (!theme) theme = "dark";                       // dark unless the visitor chose light before
+      // EMBEDDED (the page shown inside another site's iframe): the settings below. Change them here.
+      var embedded = false;
+      try { embedded = window.self !== window.top; } catch (e) { embedded = true; }   // (blocked access also means: inside a frame)
+      if (embedded) document.documentElement.dataset.embedded = "";
+      var DEFAULT_THEME = "dark";                        // what a first-time visitor gets (a saved choice always wins)
+      if (!theme) theme = DEFAULT_THEME;
       document.documentElement.dataset.theme = theme;
     })();
   </script>
@@ -23,9 +28,9 @@
       color-scheme: light;
     }
     :root[data-theme="dark"] {
-      --bg: #151726; --card: #212531; --text: #e7e9f2; --muted: #9aa1b8; --line: #323650;
-      --accent: #5b8cff; --accent-text: #0f1220; --btn: #2a2e47; --btn-hover: #353a58; --err: #ff8a80;
-      --ref-square: #5b6080; --ref-past: #484d68; --ref-line: #ffffff; --ref-circle: #ffffff; --ref-glow: none; --ref-new: #4da3ff; --ref-target: #3ddc84;
+      --bg: #222427; --card: #2c2e33; --text: #e8e9ec; --muted: #9ca0a8; --line: #3d4046;
+      --accent: #5b8cff; --accent-text: #0f1220; --btn: #34373d; --btn-hover: #404349; --err: #ff8a80;
+      --ref-square: #6c7079; --ref-past: #4d5058; --ref-line: #ffffff; --ref-circle: #ffffff; --ref-glow: none; --ref-new: #4da3ff; --ref-target: #3ddc84;
       --shadow: none;
       color-scheme: dark;
     }
@@ -35,6 +40,12 @@
     html { scrollbar-gutter: stable; overflow-y: scroll; }   /* the scroll bar always has its room: nothing jumps when it appears */
     body { font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text);
            max-width: 96rem; margin: 0 auto; padding: 1.25rem 1.25rem 3rem; }
+    /* when shown inside another site (an iframe): no page title, the host site has its own; tighter edges */
+    :root[data-embedded] h1 { display: none; }
+    :root[data-embedded] .top { justify-content: flex-end; margin-bottom: .4rem; }
+    :root[data-embedded] body { padding: .5rem; }
+    :root[data-embedded] #refsWorkspace { grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr)); }   /* smaller diagrams: more per row, so less height. 8rem = how small a diagram may get */
+    :root[data-embedded] { overflow: hidden; scrollbar-gutter: auto; }   /* the frame grows to fit (see the script at the bottom): no scroll bar inside it */
     h1 { font-size: 1.4rem; margin: 0; }
     h2 { font-size: 1rem; margin: 0; }
     small { color: var(--muted); }
@@ -89,9 +100,15 @@
     /* the pattern above, the references below; on a screen wider than tall, side by side (pattern left, references right, equal widths) */
     .main { display: grid; gap: .9rem; }
     .main > .card { margin-top: .9rem; min-width: 0; }
+    /* side by side when the window is wider than tall; below otherwise */
     @media (min-aspect-ratio: 1/1) {
-      .main { grid-template-columns: 1fr 1fr; align-items: start; }
-      #cp-canvas { max-width: none; }
+      :root:not([data-embedded]) .main { grid-template-columns: 1fr 1fr; align-items: start; }
+      :root:not([data-embedded]) #cp-canvas { max-width: none; }
+    }
+    /* inside an iframe the height follows the content, so the shape of the frame can not be used: the width decides */
+    @media (min-width: 900px) {
+      :root[data-embedded] .main { grid-template-columns: 1fr 1fr; align-items: start; }
+      :root[data-embedded] #cp-canvas { max-width: none; }
     }
     /* dark mode: the drawing is inverted (the paper becomes dark; hues turned back so red / blue stay themselves) */
     :root[data-theme="dark"] svg .art { filter: invert(.9) hue-rotate(180deg); }
@@ -166,5 +183,13 @@
   </div>
 
   <script type="module" src="js/main.js"></script>
+  <script>
+    // Inside an iframe: tell the page that holds us how tall we are, so the frame can grow to fit (see the embed snippet).
+    if ("embedded" in document.documentElement.dataset) {
+      var tell = function () { parent.postMessage({ refsHeight: Math.ceil(document.body.getBoundingClientRect().height) }, "*"); };
+      new ResizeObserver(tell).observe(document.body);
+      window.addEventListener("load", tell);
+    }
+  </script>
 </body>
 </html>

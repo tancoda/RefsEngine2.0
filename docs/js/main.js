@@ -289,8 +289,34 @@ async function computeRefs() {
   applyRefs();
 }
 
+// Inside an iframe the page keeps its height whatever sequence is showing: room is reserved for the longest one expected. A hidden grid of
+// REFS_MAX_TILES diagrams (the same kind of tiles, with the longest caption) is measured at the current width.
+const REFS_MAX_TILES = 9;               // diagrams: one per fold, plus the last one with the target. 8 folds = 9.
+function reserveRefsHeight() {
+  const box = $("refsWorkspace");
+  if (!("embedded" in document.documentElement.dataset) || !box.clientWidth) return;     // (only inside an iframe)
+  const probe = document.createElement("div");
+  probe.id = "refsWorkspace";           // (same id: the same styles)
+  probe.setAttribute("aria-hidden", "true");
+  probe.style.cssText = `position:absolute;visibility:hidden;pointer-events:none;width:${box.clientWidth}px;margin:0`;
+  const longest = Object.values(T.steps).reduce((a, b) => (b.length > a.length ? b : a), "");
+  probe.innerHTML = `<div class="step"><svg viewBox="0 0 220 220"></svg><div class="caption">${longest}</div></div>`.repeat(REFS_MAX_TILES);
+  box.after(probe);
+  box.style.minHeight = `${probe.offsetHeight}px`;
+  probe.remove();
+}
+let reserveTimer = null, reservedFor = 0;
+new ResizeObserver(() => {                         // (the width decides how many diagrams fit in a row; it settles after loading too)
+  const width = $("refsWorkspace").clientWidth;
+  if (width === reservedFor) return;
+  reservedFor = width;
+  clearTimeout(reserveTimer);
+  reserveTimer = setTimeout(() => { if (refFound?.length) reserveRefsHeight(); }, 100);
+}).observe($("refsWorkspace"));
+
 function applyRefs() {
   $("refs-target").textContent = "";
+  $("refsWorkspace").style.minHeight = "";
   refPick = null; refFound = null; refResults = {}; refOrder = []; refRecommended = null; refCursor = null;
   $("refsWorkspace").replaceChildren();
   if (!refsState) { updateRefsUI(); return; }
@@ -302,6 +328,7 @@ function applyRefs() {
   if (refFound.length === 0) {
     $("refs-status").textContent = T.refsNone;
   } else {
+    reserveRefsHeight();
     const deg = f => refCands[f.index].deg;
     // the list: fewest folds first; within the same number of folds, the vertex with the most creases first
     refOrder = [...refFound].sort((a, b) => a.folds - b.folds || deg(b) - deg(a) || a.index - b.index);

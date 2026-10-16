@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Refs Engine 2.0</title>
+  <link rel="icon" href="data:,">
+  <script>
+    // the theme is set before the page is drawn, so it never flashes: the saved choice, else the system's
+    (function () {
+      var theme = null;
+      try { theme = localStorage.getItem("theme"); } catch (e) {}
+      if (!theme) theme = "dark";                       // dark unless the visitor chose light before
+      document.documentElement.dataset.theme = theme;
+    })();
+  </script>
+  <style>
+    :root {
+      --bg: #f3f4f7; --card: #ffffff; --text: #1c2230; --muted: #667085; --line: #d9dce4;
+      --accent: #2f6fed; --accent-text: #ffffff; --btn: #f6f7fa; --btn-hover: #e9ecf3; --err: #b3261e;
+      --ref-square: #9aa1b3; --ref-past: #c9cdd8; --ref-line: #ffd60a; --ref-circle: #1c2230; --ref-glow: none; --ref-new: #2f7fe0; --ref-target: #1f9d55;
+      --shadow: 0 1px 3px rgba(20, 24, 40, .08);
+      color-scheme: light;
+    }
+    :root[data-theme="dark"] {
+      --bg: #151726; --card: #212531; --text: #e7e9f2; --muted: #9aa1b8; --line: #323650;
+      --accent: #5b8cff; --accent-text: #0f1220; --btn: #2a2e47; --btn-hover: #353a58; --err: #ff8a80;
+      --ref-square: #5b6080; --ref-past: #484d68; --ref-line: #ffffff; --ref-circle: #ffffff; --ref-glow: none; --ref-new: #4da3ff; --ref-target: #3ddc84;
+      --shadow: none;
+      color-scheme: dark;
+    }
+
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    html { scrollbar-gutter: stable; overflow-y: scroll; }   /* the scroll bar always has its room: nothing jumps when it appears */
+    body { font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text);
+           max-width: 96rem; margin: 0 auto; padding: 1.25rem 1.25rem 3rem; }
+    h1 { font-size: 1.4rem; margin: 0; }
+    h2 { font-size: 1rem; margin: 0; }
+    small { color: var(--muted); }
+    .top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+    .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); padding: .75rem 1rem; margin-top: .9rem; }
+    .error { color: var(--err); }
+
+    button { font: inherit; font-size: .85rem; color: var(--text); background: var(--btn); border: 1px solid var(--line);
+             border-radius: 6px; padding: .25rem .65rem; cursor: pointer; }
+    button:hover:not(:disabled) { background: var(--btn-hover); }
+    button:disabled { opacity: .5; cursor: default; }
+    label.primary { display: inline-block; cursor: pointer; border-radius: 6px; padding: .45rem 1.1rem; border: 1px solid var(--accent);
+                    background: var(--accent); color: var(--accent-text); font-weight: 600; }
+    label.primary:hover { filter: brightness(1.08); }
+    .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    .upload { display: flex; align-items: center; gap: .9rem; flex-wrap: wrap; }
+    #file-name { color: var(--muted); }
+
+    details > summary { cursor: pointer; font-weight: 600; }
+    details.alert > summary { color: var(--err); }
+    #info > summary { display: flex; align-items: center; }
+    #wiggle-btn { margin-left: auto; }
+    #status { margin-top: .6rem; white-space: pre-wrap; font: 13px/1.5 ui-monospace, Consolas, monospace; }
+    #info details { margin-top: .5rem; }
+    #problem-list { white-space: pre-wrap; color: var(--err); margin: .25rem 0; font: 13px/1.5 ui-monospace, Consolas, monospace; }
+    #tldr { margin-left: .4rem; }
+    .tldr-icon { height: 1.35em; width: auto; vertical-align: -.3em; margin-left: .3rem; }
+
+    #wiggle-box { margin: .5rem 0 .25rem; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; font-size: .85rem; }
+    #wiggle-msg { color: var(--muted); flex: 1 1 14rem; }
+    .wiggle-report { border-collapse: collapse; margin-bottom: .3rem; }
+    .wiggle-report td { padding: .05rem .9rem .05rem 0; }
+    .wiggle-report td:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+    .wiggle-report td.wiggle-head { font-weight: 600; }
+
+    /* little progress bars: indeterminate (a bar sliding along) or a fraction filled in */
+    .progress { height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; margin: .5rem 0; }
+    .progress > i { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 2px; transition: width .15s; }
+
+    .toolbar { display: flex; align-items: center; justify-content: flex-end; gap: .75rem; margin-bottom: .6rem; }
+    .toolbar small { margin-right: auto; }
+    .toolbar button { white-space: nowrap; }
+    #islands-list { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: .5rem; }
+    #islands-list button { display: flex; flex-direction: column; align-items: center; gap: .2rem; padding: .35rem; font-size: .8rem; }
+    #islands-list button.picked { outline: 2px solid var(--accent); }
+    #islands-list svg { width: 96px; height: 96px; }
+    #islands-label small { display: block; margin-top: .2rem; }
+    #about-body p, #hint, #status, #wiggle-msg > div, #refs-status, #refs-target, .caption { white-space: pre-line; }   /* so a \n in text.js is a line break */
+    #about-body p { margin: .5rem 0; }
+    .head { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; min-height: 2rem; }
+    #cp-canvas { display: block; width: 100%; max-width: 44rem; aspect-ratio: 1; margin: .5rem auto 0; }
+    /* the pattern above, the references below; on a screen wider than tall, side by side (pattern left, references right, equal widths) */
+    .main { display: grid; gap: .9rem; }
+    .main > .card { margin-top: .9rem; min-width: 0; }
+    @media (min-aspect-ratio: 1/1) {
+      .main { grid-template-columns: 1fr 1fr; align-items: start; }
+      #cp-canvas { max-width: none; }
+    }
+    /* dark mode: the drawing is inverted (the paper becomes dark; hues turned back so red / blue stay themselves) */
+    :root[data-theme="dark"] svg .art { filter: invert(.9) hue-rotate(180deg); }
+
+    /* the references: no boxes, the steps simply sit side by side */
+    #refs-target { margin: .35rem 0; font: 14px/1.4 ui-monospace, Consolas, monospace; }
+    #refs-count { min-width: 5.5rem; text-align: center; font-variant-numeric: tabular-nums; color: var(--muted); }
+    #refsWorkspace { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: 1.25rem 1.25rem; margin-top: 1rem; }
+    #refsWorkspace .step svg { display: block; width: 100%; height: auto; aspect-ratio: 1; }
+    #refsWorkspace .step .caption { font-size: .85rem; margin-top: .4rem; }
+
+    #tooltip { position: fixed; z-index: 30; pointer-events: none; background: #222; color: #fff; padding: .4rem .6rem;
+               border-radius: 4px; font: 12px/1.5 monospace; white-space: pre; }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <h1 id="page-title">Refs Engine 2.0</h1>
+    <button id="theme-toggle" type="button" title="Light / dark">Dark mode</button>
+  </div>
+
+  <div class="card upload">
+    <label class="primary" id="choose-file" for="cp-file">Choose crease pattern</label>
+    <input id="cp-file" class="sr-only" type="file" accept=".cp,.fold">
+    <span id="file-name">.cp or .fold</span>
+  </div>
+
+  <div class="card" id="islands" hidden>
+    <div id="islands-label"></div>
+    <div id="islands-list"></div>
+  </div>
+
+  <details id="about" class="card"><summary id="about-summary">About</summary>
+    <div id="about-body"></div>
+  </details>
+
+  <details id="info" class="card"><summary><span id="info-summary">Info</span><span id="tldr"></span>
+    <button id="wiggle-btn" type="button" hidden>Wiggle</button></summary>
+    <div id="status">No file loaded yet.</div>
+    <details hidden><summary id="problems-summary">Problems</summary><pre id="problem-list"></pre></details>
+    <div id="wiggle-box" hidden>
+      <div id="wiggle-msg"></div>
+      <button id="wiggle-cp" type="button" hidden title="The wiggled pattern, scaled to -200..200">Download .cp</button>
+      <button id="wiggle-fold" type="button" hidden title="The wiggled pattern, scaled to -200..200">Download .fold</button>
+    </div>
+  </details>
+
+
+  <div class="main">
+    <div class="card">
+      <div class="toolbar">
+        <small id="hint">Scroll over</small>
+        <button id="reset-view" type="button">Reset view</button>
+      </div>
+      <svg id="cp-canvas" xmlns="http://www.w3.org/2000/svg" viewBox="-1.1 -1.1 2.2 2.2"></svg>
+      <div id="tooltip" hidden></div>
+    </div>
+
+    <div class="card" id="refs-view">
+      <div class="head"><h2 id="refs-heading">References</h2>
+        <button id="refs-recommended" type="button" title="The suggested vertex: off the paper's edge, with many creases and few folds" disabled>Recommended</button>
+        <button id="refs-first" type="button" disabled>Solution 01</button>
+        <button id="refs-prev" type="button" title="The next simpler vertex" disabled>&#9664;</button>
+        <span id="refs-count"></span>
+        <button id="refs-next" type="button" title="The next more complicated vertex" disabled>&#9654;</button>
+        <small id="refs-status"></small>
+      </div>
+      <div id="refs-target"></div>
+      <div class="progress" id="refs-progress" hidden><i></i></div>
+      <div id="refsWorkspace"></div>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

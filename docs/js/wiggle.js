@@ -446,13 +446,64 @@ function snapLoosened(graph, snapped) {
   return null;
 }
 
+// ---------------------------------------------------------------------------
+// Kawasaki-Justin: at a flat-foldable vertex the wedges between the creases, taken in turn around the vertex, add
+// up to 180 degrees on the even ones and on the odd ones; that is, their alternating sum is zero. A wiggle that
+// breaks it at a vertex that had it before has put that vertex in the wrong place, so it is no good.
+// Only vertices inside the paper count (a border vertex is not folded flat on its own). A vertex with an odd number
+// of creases can never be flat-foldable.
+// ---------------------------------------------------------------------------
+// -> the indices of the interior vertices where Kawasaki-Justin does not hold (alternating sum off by more than tol, radians)
+export function kawasakiFailures(vertices, edges, tol) {
+  const around = vertices.map(() => []);
+  const onBorder = vertices.map(() => false);
+  for (const [a, b, type] of edges) {
+    if (a === b) continue;
+    around[a].push(Math.atan2(vertices[b][1] - vertices[a][1], vertices[b][0] - vertices[a][0]));
+    around[b].push(Math.atan2(vertices[a][1] - vertices[b][1], vertices[a][0] - vertices[b][0]));
+    if (type === "b") onBorder[a] = onBorder[b] = true;
+  }
+  const bad = [];
+  around.forEach((angles, v) => {
+    if (onBorder[v] || angles.length === 0) return;
+    if (angles.length % 2) { bad.push(v); return; }
+    angles.sort((p, q) => p - q);
+    let alt = 0;
+    angles.forEach((a, i) => { const next = i + 1 < angles.length ? angles[i + 1] : angles[0] + 2 * Math.PI; alt += (i % 2 ? -1 : 1) * (next - a); });
+    if (Math.abs(alt) > tol) bad.push(v);
+  });
+  return bad;
+}
+
+// The wiggle must not break Kawasaki-Justin anywhere it held in the file: a vertex that already failed (the pattern
+// is not flat-foldable there; its angles are off by a whole 22.5-degree step or more, far above the noise) is not
+// held against it. -> the result's vertices (indices into result.vertices) that are newly broken
+export function newKawasakiBreaks(graph, result) {
+  const NOISE = 0.05;                                         // radians: ~3 degrees; real failures are 22.5 degrees or more
+  const before = new Set(kawasakiFailures(graph.vertices, graph.edges, NOISE));
+  const after = kawasakiFailures(result.vertices, result.edges, 1e-9);
+  const V = graph.vertices;
+  return after.filter(v => {
+    let best = -1, bestD = Infinity;                          // the vertex of the file this one came from
+    V.forEach((p, i) => { const d = Math.hypot(p[0] - result.vertices[v][0], p[1] - result.vertices[v][1]); if (d < bestD) { bestD = d; best = i; } });
+    return best >= 0 && !before.has(best);
+  });
+}
+
 // Stage 1 (loosened snapping), then stage 2: exact arithmetic along the lines, small denominators first (real
 // patterns use them, and with fewer candidates a guess is less likely to be wrong), then the full library.
 export function wiggle(graph, snapped, options = {}) {
   const loose = options.maxD ? null : snapLoosened(graph, snapped);
-  if (loose) { loose.warnings = []; return loose; }
+  if (loose) {
+    const broken = newKawasakiBreaks(graph, loose);
+    if (!broken.length) { loose.warnings = []; return loose; }       // (otherwise: try the second way)
+  }
   const result = wiggleOnce(graph, snapped, options);
   if (result.ok) {
+    const broken = newKawasakiBreaks(graph, result);
+    if (broken.length) {
+      return { ok: false, reason: T.kawasakiBroken?.(broken.length, broken) ?? `Wiggling would break Kawasaki-Justin at ${broken.length} vertex(es) that satisfied it in the file, so the result was thrown away.` };
+    }
     result.warnings = [];
     if (result.maxMoved > 2e-5) result.warnings.push(T.largestMove(result.maxMoved));
   }

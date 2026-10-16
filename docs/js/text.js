@@ -30,16 +30,15 @@ export const TEXT = {
   },
   // ---------- the About panel: one string per paragraph. Write whatever you like (plain text). ----------
   about: [
-    "Refs Engine 2.0",
-    "HOW TO USE",
-    "FILE UPLOAD",
-    "FILE UPLOAD",
-    "FILE UPLOAD",
-    "FILE UPLOAD",
-    "FILE UPLOAD",
-    "FILE UPLOAD",
+    "# HOW TO USE",
+    "Upload a 22.5° crease pattern; .fold and .cp are accepted. If the file contains multiple crease patterns, you'll be able to choose which to work on. If the crease pattern contains errors (common with older files), press the Wiggle button to try to fix. Should wiggling resolve the crease pattern, you can download the fixed file for yourself. The solver will propose a recommended reference point, and the sequence to find it, but you can navigate the library of possible references by clicking on vertices in the crease pattern, or by using the arrows in the references panel.",
     "",
-    "Each line in this list is its own paragraph.",
+    "# ATTRIBUTIONS",
+    "Refs Engine 2.0 is a generalized version of the tool that I developed with Brandon Wong for [Explori 22.5](https://225.designorigami.net/). The It also has my own implementation of Jason Ku's [CP Analyze](https://origamimagiro.github.io/cp_analyze/), and relies on the ideas of Tomohiro Tachi and Eric Demaine: [Degenerative Coordinates in 22.5° Grid System](https://erikdemaine.org/papers/AngularGrid_Origami5/). The term `Wiggler` is a reference to my DavidOrigami's BoxPleatWiggler, which I've just learned a) now accepts 22.5° crease patterns, and b) was itself named in reference to Brandon Wong's Wiggler.",
+    "",
+    "Travis Nolan",
+    "> [Website](https://www.adroitorigami.com)",
+    "> [Instagram](https://www.instagram.com/tankoda/)",
   ],
   islandsLabel: n => `This file has ${n} separate patterns. Pick the one to work on:`,
   islandName: i => `Piece ${i}`,
@@ -56,6 +55,13 @@ export const TEXT = {
   notSquareNoRefs: (w, h) => `Paper is ${w.toPrecision(6)} x ${h.toPrecision(6)}, not square: finding references is not possible for this pattern.`,
   problemCount: n => `${n} problem(s).`,
   fileError: (name, msg) => `${name}: ${msg}`,
+
+  // ---------- samples
+  samples: [
+    { label: "Outfoxed", file: "Outfoxed.cp" },
+    { label: "Old Dragon (broken, try wiggler)", file: "old-dragon-messy.cp" },
+    { label: "Example batch (multiple files)", file: "sample-batch.cp" },
+  ],
 
   // ---------- the little icons next to "Info" (hold the mouse over one) ----------
   tldrNotSquare: (w, h) => `The paper is not square (${w.toPrecision(6)} x ${h.toPrecision(6)})`,

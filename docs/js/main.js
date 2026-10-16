@@ -18,7 +18,32 @@ for (const [id, t] of Object.entries(T.page)) {           // the fixed texts and
   if (t.text !== undefined) el.textContent = t.text;
   if (t.title !== undefined) el.title = t.title;
 }
-$("about-body").replaceChildren(...T.about.map(text => Object.assign(document.createElement("p"), { textContent: text })));
+// About text. Each line of the list in text.js is one paragraph. Inside a line:
+//   **bold**   *italic*   [words](https://address) = a link (new tab)   \n = a line break inside the paragraph
+// and a line can start with:  "# " a heading   "- " a bullet   "> " indented (a tab)   "~ " centered   "" (empty) = extra space
+function inline(parent, text) {
+  const pattern = /\*\*(.+?)\*\*|\*(.+?)\*|\[([^\]]+)\]\(([^)\s]+)\)/g;
+  let last = 0;
+  for (const m of text.matchAll(pattern)) {
+    parent.append(text.slice(last, m.index));
+    let el;
+    if (m[1] !== undefined) el = Object.assign(document.createElement("strong"), { textContent: m[1] });
+    else if (m[2] !== undefined) el = Object.assign(document.createElement("em"), { textContent: m[2] });
+    else el = Object.assign(document.createElement("a"), { textContent: m[3], href: m[4], target: "_blank", rel: "noopener" });
+    parent.append(el);
+    last = m.index + m[0].length;
+  }
+  parent.append(text.slice(last));
+}
+$("about-body").replaceChildren(...T.about.map(line => {
+  const kinds = { "# ": ["h3", ""], "- ": ["p", "bullet"], "> ": ["p", "indent"], "~ ": ["p", "center"] };
+  const kind = kinds[line.slice(0, 2)];
+  const p = document.createElement(kind ? kind[0] : "p");
+  if (kind?.[1]) p.className = kind[1];
+  if (line === "") p.className = "gap";
+  inline(p, kind ? line.slice(2) : line);
+  return p;
+}));
 const canvas = $("cp-canvas"), tooltip = $("tooltip");
 makeZoomable(canvas);
 $("reset-view").addEventListener("click", () => resetZoom(canvas));
@@ -59,21 +84,41 @@ function download(filename, text, type) {
 $("cp-file").addEventListener("change", async () => {
   const file = $("cp-file").files[0];
   if (!file) return;
-  $("file-name").textContent = file.name;
-  const type = file.name.split(".").pop().toLowerCase();               // "pattern.CP" -> "cp"
+  loadPatternText(file.name, await file.text());
+});
+// the sample patterns: a drop-down. The list can be changed in text.js (T.samples); these are used when it has none.
+const SAMPLES = T.samples ?? [
+  { label: "Old Dragon", file: "old-dragon.cp" },
+  { label: "Old Dragon, slightly messy (try Wiggle)", file: "old-dragon-messy.cp" },
+  { label: "Beetle", file: "beetle.cp" },
+];
+for (const s of SAMPLES) $("sample-btn").append(new Option(s.label, s.file));
+$("sample-btn").addEventListener("change", async () => {
+  const file = $("sample-btn").value;
+  $("sample-btn").value = "";                               // (back to "Try a sample", so the same one can be picked again)
+  if (!file) return;
+  try {
+    const response = await fetch(new URL(`../samples/${file}`, import.meta.url));
+    if (!response.ok) throw new Error(response.status);
+    loadPatternText(file, await response.text());
+  } catch (err) { setStatus(T.couldNotRead(String(err.message ?? err)), true); }
+});
+async function loadPatternText(name, text) {
+  $("file-name").textContent = name;
+  const type = name.split(".").pop().toLowerCase();                    // "pattern.CP" -> "cp"
   if (type !== "cp" && type !== "fold") { setStatus(T.unsupportedType(type), true); return; }
   let segments;
-  try { segments = parsePattern({ type, text: await file.text() }); }
+  try { segments = parsePattern({ type, text }); }
   catch (err) { setStatus(T.couldNotRead(err.message), true); return; }
   let found = { islands: [], loose: 0 };
   try { found = findIslands(segments); } catch (err) { console.warn("island scan failed:", err); }
-  if (found.islands.length < 2) { showIslands([], type, null); handlePattern({ name: file.name, type, segments }); return; }
+  if (found.islands.length < 2) { showIslands([], type, null); handlePattern({ name, type, segments }); return; }
   const pick = i => {                                    // load one piece (the biggest to begin with)
     showIslands(found, type, i, pick);
-    handlePattern({ name: `${file.name} (${T.islandName(i + 1).toLowerCase()})`, type, segments: found.islands[i].segments });
+    handlePattern({ name: `${name} (${T.islandName(i + 1).toLowerCase()})`, type, segments: found.islands[i].segments });
   };
   pick(0);
-});
+}
 
 // the pieces of a file with several patterns: a small picture of each (about an inch), click one to work on it
 function showIslands(found, type, picked, pick) {

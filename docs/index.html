@@ -49,7 +49,7 @@
     h1 { font-size: 1.4rem; margin: 0; }
     h2 { font-size: 1rem; margin: 0; }
     small { color: var(--muted); }
-    .top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+    .top { display: flex; align-items: center; justify-content: center; margin-bottom: 1rem; }
     .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); padding: .75rem 1rem; margin-top: .9rem; }
     .error { color: var(--err); }
 
@@ -61,10 +61,25 @@
                     background: var(--accent); color: var(--accent-text); font-weight: 600; }
     label.primary:hover { filter: brightness(1.08); }
     .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    select { font: inherit; font-size: .85rem; color: var(--text); background: var(--btn); border: 1px solid var(--line); border-radius: 6px; padding: .25rem .4rem; cursor: pointer; }
+    #theme-toggle { margin-left: auto; }   /* dark / light sits at the right end of the upload row */
     .upload { display: flex; align-items: center; gap: .9rem; flex-wrap: wrap; }
     #file-name { color: var(--muted); }
 
     details > summary { cursor: pointer; font-weight: 600; }
+    /* the same little arrow on About and Info: right when closed, down when open */
+    #about > summary, #info > summary { list-style: none; }
+    #about > summary::-webkit-details-marker, #info > summary::-webkit-details-marker { display: none; }
+    #about > summary::before, #info > summary::before { content: "\25B8"; display: inline-block; width: 1.1em; }
+    #about[open] > summary::before, #info[open] > summary::before { content: "\25BE"; }
+    .panel a { color: var(--accent); }
+    #about-body p, #about-body h3 { white-space: pre-line; margin: .5rem 0; }   /* a \n in the text is a line break */
+    #about-body h3 { font-size: 1rem; margin-top: .9rem; }
+    #about-body .bullet { margin: .2rem 0 .2rem 1.1rem; text-indent: -.9rem; }
+    #about-body .bullet::before { content: "\2022"; display: inline-block; width: .9rem; text-indent: 0; }
+    #about-body .indent { margin-left: 2rem; }
+    #about-body .center { text-align: center; }
+    #about-body .gap { height: 1rem; margin: 0; }
     details.alert > summary { color: var(--err); }
     #info > summary { display: flex; align-items: center; }
     #wiggle-btn { margin-left: auto; }
@@ -133,13 +148,14 @@
 <body>
   <div class="top">
     <h1 id="page-title">Refs Engine 2.0</h1>
-    <button id="theme-toggle" type="button" title="Light / dark">Dark mode</button>
   </div>
 
   <div class="card upload">
     <label class="primary" id="choose-file" for="cp-file">Choose crease pattern</label>
     <input id="cp-file" class="sr-only" type="file" accept=".cp,.fold">
+    <select id="sample-btn" title="Load an example pattern"><option value="">Try a sample</option></select>
     <span id="file-name">.cp or .fold</span>
+    <button id="theme-toggle" type="button" title="Light / dark">Dark mode</button>
   </div>
 
   <div class="card" id="islands" hidden>

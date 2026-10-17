@@ -12,9 +12,9 @@ export const TEXT = {
     "page-title": { text: "22.5° Refs Engine 2.0" },
     "about-summary": { text: "About" },
     "theme-toggle": { title: "Light / Dark" },
-    "choose-file": { text: "Choose crease pattern" },
+    "choose-file": { text: "Upload crease pattern" },
     "file-name": { text: ".cp or .fold" },
-    "info-summary": { text: "Info" },
+    "info-summary": { text: "File info" },
     "status": { text: "No file loaded yet." },
     "problems-summary": { text: "Problems" },
     "wiggle-btn": { text: "Wiggle", title: "Floating point precision error; attempt to rectify" },
@@ -31,7 +31,7 @@ export const TEXT = {
   // ---------- the About panel: one string per paragraph. Write whatever you like (plain text). ----------
   about: [
     "# HOW TO USE",
-    "Upload a 22.5° crease pattern; .fold and .cp are accepted. If the file contains multiple crease patterns, you'll be able to choose which to work on. If the crease pattern contains errors (common with older files), press the Wiggle button to try to fix. Should wiggling resolve the crease pattern, you can download the fixed file for yourself. The solver will propose a recommended reference point, and the sequence to find it, but you can navigate the library of possible references by clicking on vertices in the crease pattern, or by using the arrows in the references panel.",
+    "Upload a crease pattern; .fold and .cp are accepted. If the file contains multiple crease patterns, you'll be able to choose which to work on. Refs Engine is designed for 22.5° crease patterns, but it will work for box-pleated ones too! If the crease pattern contains errors (common with older files), press the Wiggle button to try to fix. Should wiggling resolve the crease pattern, you can download the fixed file for yourself. The solver will propose a recommended reference point, and the sequence to find it, but you can navigate the library of possible references by clicking on vertices in the crease pattern, or by using the arrows in the references panel.",
     "",
     "# ATTRIBUTIONS",
     "Refs Engine 2.0 is a generalized version of the tool that I developed with Brandon Wong for [Explori 22.5](https://225.designorigami.net/). The It also has my own implementation of Jason Ku's [CP Analyze](https://origamimagiro.github.io/cp_analyze/), and relies on the ideas of Tomohiro Tachi and Eric Demaine: [Degenerative Coordinates in 22.5° Grid System](https://erikdemaine.org/papers/AngularGrid_Origami5/). The term `Wiggler` is a reference to my DavidOrigami's BoxPleatWiggler, which I've just learned a) now accepts 22.5° crease patterns, and b) was itself named in reference to Brandon Wong's Wiggler.",
@@ -49,7 +49,7 @@ export const TEXT = {
   darkMode: "Dark mode",
 
   // ---------- messages after loading a file (the Info box) ----------
-  unsupportedType: type => `Unsupported file type ".${type}". Please choose a .cp or .fold file.`,
+  unsupportedType: type => `Unsupported file type ".${type}". Please upload a .cp or .fold file.`,
   couldNotRead: msg => `Could not read file: ${msg}`,
   loaded: (name, type) => `Loaded ${name}`,
   matched: (matched, total, maxD) => `${matched} of ${total} distinct coordinates matched exactly (largest denominator: ${maxD})`,

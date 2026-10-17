@@ -42,7 +42,7 @@
            max-width: 96rem; margin: 0 auto; padding: 1.25rem 1.25rem 3rem; }
     /* when shown inside another site (an iframe): no page title, the host site has its own; tighter edges */
     :root[data-embedded] h1 { display: none; }
-    :root[data-embedded] .top { justify-content: flex-end; margin-bottom: .4rem; }
+    :root[data-embedded] .top { display: none; }
     :root[data-embedded] body { padding: .5rem; }
     :root[data-embedded] #refsWorkspace { grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr)); }   /* smaller diagrams: more per row, so less height. 8rem = how small a diagram may get */
     :root[data-embedded] { overflow: hidden; scrollbar-gutter: auto; }   /* the frame grows to fit (see the script at the bottom): no scroll bar inside it */
@@ -62,16 +62,35 @@
     label.primary:hover { filter: brightness(1.08); }
     .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
     select { font: inherit; font-size: .85rem; color: var(--text); background: var(--btn); border: 1px solid var(--line); border-radius: 6px; padding: .25rem .4rem; cursor: pointer; }
-    #theme-toggle { margin-left: auto; }   /* dark / light sits at the right end of the upload row */
-    .upload { display: flex; align-items: center; gap: .9rem; flex-wrap: wrap; }
-    #file-name { color: var(--muted); }
+    /* the bar: upload, sample, file name on the left; Info in the middle; About and light / dark on the right */
+    #bar { display: flex; align-items: center; gap: .6rem; padding: .5rem .75rem; }
+    #bar .left, #bar .right { display: flex; align-items: center; gap: .6rem; }
+    #bar .left { flex: 0 1 auto; min-width: 0; }
+    #bar .right { flex: 0 0 auto; }
+    #aboutline { display: flex; justify-content: center; margin-bottom: -.35rem; }
+    #aboutline > details { width: min(22rem, 100%); }
+    #aboutline > details > summary { justify-content: center; }   /* About: a line of its own above the bar */
+    #bar #info { margin: 0 auto; }   /* the free room is split in two: before and after Info */
+    #file-name { color: var(--muted); flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #bar label.primary, #bar select, #bar button, #bar .pop { flex: 0 0 auto; white-space: nowrap; }
+    #bar label.primary { padding: .35rem .9rem; }
+    #bar.no-name #file-name { display: none; }
+    #tldr { display: none; }   /* no little icons: the Info button just turns red when there are problems */
+    #bar select { flex: 0 1 auto; min-width: 4.5rem; }
 
     details > summary { cursor: pointer; font-weight: 600; }
-    /* the same little arrow on About and Info: right when closed, down when open */
-    #about > summary, #info > summary { list-style: none; }
-    #about > summary::-webkit-details-marker, #info > summary::-webkit-details-marker { display: none; }
-    #about > summary::before, #info > summary::before { content: "\25B8"; display: inline-block; width: 1.1em; }
-    #about[open] > summary::before, #info[open] > summary::before { content: "\25BE"; }
+    /* About and Info are buttons that open a popup over a dimmed page; the page itself never changes size */
+    .pop > summary { list-style: none; display: flex; align-items: center; gap: .4rem; cursor: pointer; font-size: .85rem; font-weight: 600;
+                     background: var(--btn); border: 1px solid var(--line); border-radius: 6px; padding: .25rem .65rem; white-space: nowrap; }
+    .pop > summary:hover { background: var(--btn-hover); }
+    .pop > summary::-webkit-details-marker { display: none; }
+    .pop > .panel { position: fixed; z-index: 50; top: 9.5rem; left: 50%; transform: translateX(-50%); width: min(44rem, calc(100% - 2rem));
+      max-height: min(28rem, calc(100vh - 5rem)); overflow: auto; background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.5); padding: .6rem 1rem .75rem; }
+    .panel > .close { float: right; position: sticky; top: 0; margin: 0 0 .3rem .5rem; }
+    :root[data-embedded] .pop > .panel { top: 7rem; }
+    #backdrop { position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,.55); }
+    #backdrop[hidden] { display: none; }
     .panel a { color: var(--accent); }
     #about-body p, #about-body h3 { white-space: pre-line; margin: .5rem 0; }   /* a \n in the text is a line break */
     #about-body h3 { font-size: 1rem; margin-top: .9rem; }
@@ -118,16 +137,6 @@
     .main > .card, .main > #refs-slot { margin-top: .9rem; min-width: 0; }
     #refs-slot > .card { margin-top: 0; }
     #refs-target { min-height: 2.8em; }   /* room for the two lines (x, y) before they appear */
-    /* inside an iframe About and Info are two buttons on one line; each opens a popup over the page (so the page never changes
-       height), with a close button; Escape or a click outside closes it too */
-    .close { display: none; }
-    :root[data-embedded] #panels { display: flex; gap: .5rem; position: relative; margin-top: .4rem; }
-    :root[data-embedded] #panels > details.card { margin-top: 0; padding: .3rem .75rem; flex: 0 0 auto; }
-    :root[data-embedded] #info { flex: 1 1 auto; }
-    :root[data-embedded] #panels summary::before { display: none; }
-    :root[data-embedded] #panels > details.card > .panel { position: absolute; left: 0; right: 0; top: calc(100% + .35rem); z-index: 20; max-height: 24rem; overflow: auto;
-      background: var(--card); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 6px 24px rgba(0,0,0,.45); padding: .6rem 1rem .75rem; }
-    :root[data-embedded] .panel > .close { display: block; float: right; position: sticky; top: 0; margin: 0 0 .3rem .5rem; }
     /* side by side when the window is wider than tall; below otherwise */
     @media (min-aspect-ratio: 1/1) {
       :root:not([data-embedded]) .main { grid-template-columns: 1fr 1fr; align-items: start; }
@@ -142,7 +151,9 @@
 
     /* the references: no boxes, the steps simply sit side by side */
     #refs-target { margin: .35rem 0; font: 14px/1.4 ui-monospace, Consolas, monospace; }
-    #refs-count { min-width: 5.5rem; text-align: center; font-variant-numeric: tabular-nums; color: var(--muted); }
+    #refs-pos { width: 3.2ch; box-sizing: content-box; font: inherit; font-size: .85rem; text-align: center; color: var(--text); background: var(--btn); border: 1px solid var(--line); border-radius: 6px; padding: .2rem .35rem; margin-right: .35rem; }
+    #refs-pos:disabled { opacity: .5; }
+    #refs-count { white-space: nowrap; min-width: 5.5rem; text-align: center; font-variant-numeric: tabular-nums; color: var(--muted); }
     #refsWorkspace { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: 1.25rem 1.25rem; margin-top: 1rem; align-content: start; grid-auto-rows: max-content; }   /* rows keep their natural height and spacing; spare room stays empty at the bottom */
     #refsWorkspace .step svg { display: block; width: 100%; height: auto; aspect-ratio: 1; }
     #refsWorkspace .step .caption { font-size: .85rem; margin-top: .4rem; }
@@ -156,25 +167,20 @@
     <h1 id="page-title">Refs Engine 2.0</h1>
   </div>
 
-  <div class="card upload">
-    <label class="primary" id="choose-file" for="cp-file">Choose crease pattern</label>
-    <input id="cp-file" class="sr-only" type="file" accept=".cp,.fold">
-    <select id="sample-btn" title="Load an example pattern"><option value="">Try a sample</option></select>
-    <span id="file-name">.cp or .fold</span>
-    <button id="theme-toggle" type="button" title="Light / dark">Dark mode</button>
-  </div>
-
-  <div class="card" id="islands" hidden>
-    <div id="islands-label"></div>
-    <div id="islands-list"></div>
-  </div>
-
-  <div id="panels">
-  <details id="about" class="card"><summary id="about-summary">About</summary>
+  <div id="aboutline">
+  <details id="about" class="pop"><summary id="about-summary">About</summary>
     <div class="panel"><button class="close" type="button" aria-label="Close" title="Close">&#10005;</button><div id="about-body"></div></div>
   </details>
+  </div>
 
-  <details id="info" class="card"><summary><span id="info-summary">Info</span><span id="tldr"></span>
+  <div class="card" id="bar">
+    <div class="left">
+      <label class="primary" id="choose-file" for="cp-file">Choose crease pattern</label>
+      <input id="cp-file" class="sr-only" type="file" accept=".cp,.fold">
+      <select id="sample-btn" title="Load an example pattern"></select>
+      <span id="file-name">.cp or .fold</span>
+    </div>
+  <details id="info" class="pop"><summary><span id="info-summary">Info</span><span id="tldr" hidden></span>
     <button id="wiggle-btn" type="button" hidden>Wiggle</button></summary>
     <div class="panel"><button class="close" type="button" aria-label="Close" title="Close">&#10005;</button>
     <div id="status">No file loaded yet.</div>
@@ -186,7 +192,19 @@
     </div>
     </div>
   </details>
+
+    <div class="right">
+
+
+      <button id="theme-toggle" type="button" title="Light / dark">Dark mode</button>
+    </div>
   </div>
+
+  <div class="card" id="islands" hidden>
+    <div id="islands-label"></div>
+    <div id="islands-list"></div>
+  </div>
+
 
 
   <div class="main">
@@ -204,11 +222,10 @@
       <div class="head"><h2 id="refs-heading">References</h2>
         <span class="group">
           <button id="refs-recommended" type="button" title="The suggested vertex: off the paper's edge, with many creases and few folds" disabled>Recommended</button>
-          <button id="refs-first" type="button" disabled>Solution 01</button>
         </span>
         <span class="group">
           <button id="refs-prev" type="button" title="The next simpler vertex" disabled>&#9664;</button>
-          <span id="refs-count"></span>
+          <span id="refs-count"><input id="refs-pos" type="text" inputmode="numeric" autocomplete="off" aria-label="Solution number" title="Type a number and press Enter to jump there" disabled><span id="refs-of"></span></span>
           <button id="refs-next" type="button" title="The next more complicated vertex" disabled>&#9654;</button>
         </span>
         <small id="refs-status"></small>
@@ -220,6 +237,7 @@
     </div>
   </div>
 
+  <div id="backdrop" hidden></div>
   <script type="module" src="js/main.js"></script>
   <script>
     // Inside an iframe: tell the page that holds us how tall we are, so the frame can grow to fit (see the embed snippet).

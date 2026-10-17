@@ -436,13 +436,26 @@ function stepRef(direction) {            // the counter: from the shortest seque
 function updateRefsUI() {
   const n = refOrder.length, pos = refPick == null ? -1 : refOrder.findIndex(f => f.index === refPick);
   $("refs-recommended").disabled = n === 0;
-  $("refs-first").disabled = n === 0;
   $("refs-prev").disabled = n === 0 || refCursor === 0;
   $("refs-next").disabled = n === 0 || refCursor === n - 1;
-  $("refs-count").textContent = n === 0 ? "" : pos >= 0 ? T.refsCount(pos + 1, n) : T.refsFound(n);
+  // "[ 52 ] of 121": the number can be typed
+  $("refs-pos").disabled = n === 0;
+  $("refs-pos").value = pos >= 0 ? String(pos + 1) : "";
+  $("refs-pos").placeholder = n === 0 ? "" : "-";
+  $("refs-of").textContent = n === 0 ? "" : (T.refsOf ? T.refsOf(n) : `of ${n}`);
 }
 $("refs-recommended").addEventListener("click", () => showRef(refRecommended));
-$("refs-first").addEventListener("click", () => refOrder.length && showRef(refOrder[0].index));
+const jumpToTyped = () => {                                // a typed number: 1..n, otherwise back to what it was
+  const k = Math.round(Number($("refs-pos").value.trim()));
+  if (refOrder.length && Number.isFinite(k) && $("refs-pos").value.trim() !== "") showRef(refOrder[Math.min(Math.max(k, 1), refOrder.length) - 1].index);
+  else updateRefsUI();
+};
+$("refs-pos").addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); jumpToTyped(); $("refs-pos").select(); }
+  else if (e.key === "Escape") { updateRefsUI(); $("refs-pos").blur(); }
+});
+$("refs-pos").addEventListener("change", jumpToTyped);
+$("refs-pos").addEventListener("focus", () => $("refs-pos").select());
 $("refs-prev").addEventListener("click", () => stepRef(-1));
 $("refs-next").addEventListener("click", () => stepRef(+1));
 
@@ -450,10 +463,40 @@ $("refs-next").addEventListener("click", () => stepRef(+1));
 for (const [one, other] of [["about", "info"], ["info", "about"]])
   $(one).addEventListener("toggle", () => { if ($(one).open) $(other).open = false; });
 
-// the popups (inside an iframe): the close button, Escape, or a click anywhere outside closes them
-for (const id of ["about", "info"]) $(id).querySelector(".close").addEventListener("click", () => { $(id).open = false; });
-const closePopups = () => { $("about").open = false; $("info").open = false; };
-document.addEventListener("keydown", e => { if (e.key === "Escape" && "embedded" in document.documentElement.dataset) closePopups(); });
+// the popups (About, Info): a dimmed page behind, the close button, Escape, or a click outside closes them
+const popups = [$("about"), $("info")];
+const syncBackdrop = () => { $("backdrop").hidden = !popups.some(p => p.open); };
+for (const p of popups) {
+  p.querySelector(".close").addEventListener("click", () => { p.open = false; });
+  p.addEventListener("toggle", syncBackdrop);
+}
+document.addEventListener("keydown", e => { if (e.key === "Escape") popups.forEach(p => { p.open = false; }); });
 document.addEventListener("click", e => {
-  if ("embedded" in document.documentElement.dataset && !e.target.closest("#panels")) closePopups();
+  if (!e.target.closest(".panel, .pop > summary")) popups.forEach(p => { p.open = false; });   // (the dimmed page counts as outside)
 });
+
+// the bar: when it is narrow the labels get shorter ("Upload", "Sample") and the file name goes
+const barLabels = {
+  choose: [$("choose-file").textContent, T.chooseShort ?? "Upload"],
+  sample: [T.sampleLabel ?? "Try a sample", T.sampleShort ?? "Sample"],
+};
+const placeholder = new Option(barLabels.sample[0], "");
+$("sample-btn").prepend(placeholder);
+$("sample-btn").value = "";
+function fitBar() {
+  const bar = $("bar"), left = bar.querySelector(".left"), right = bar.querySelector(".right");
+  // step 0: full words; 1: short words; 2: also no file name
+  const fits = () => left.scrollWidth <= left.clientWidth + 1 && right.scrollWidth <= right.clientWidth + 1;
+  const apply = step => {
+    $("choose-file").textContent = barLabels.choose[step ? 1 : 0];
+    placeholder.textContent = barLabels.sample[step ? 1 : 0];
+    bar.classList.toggle("no-name", step >= 2);
+  };
+  let step = 0;
+  apply(step);
+  while (!fits() && step < 2) apply(++step);
+}
+new ResizeObserver(fitBar).observe($("bar"));
+window.addEventListener("load", fitBar);
+document.fonts?.ready.then(fitBar);
+fitBar();

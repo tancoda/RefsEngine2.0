@@ -4,7 +4,7 @@
 //
 //   graph : { vertices: [[x, y], ...], edges: [[i, j], ...] }   in [-1, 1]
 //   snapped : { exact: [[recipeX, recipeY], ...] }                a recipe is [m, n, D] = (m + n*sqrt2) / D, or null
-//   show  : { original, refFound, refPoint, onVertexClick }      original = the segments as uploaded;
+//   show  : { original, refFound (each with .vertex = its graph vertex), refPoint, onVertexClick }      original = the segments as uploaded;
 //           refFound = [{ index, xy, label }], refPoint = the vertex showing, onVertexClick(index)
 
 import { TEXT as T } from "./text.js";
@@ -95,8 +95,9 @@ export function drawPattern(svg, tooltip, graph, snapped, show = {}) {
   graph.vertices.forEach((vertex, index) => {                 // the other vertices
     const [rx, ry] = snapped.exact[index];
     const matched = rx !== null && ry !== null;
-    if (show.refFound && matched) return;                     // (the finder's dots stand in for these)
-    const dot = make("circle", { cx: vertex[0], cy: sy(vertex[1]), r: DOT, fill: COLORS.vertexAssigned, stroke: "transparent", "stroke-width": 0.03 });
+    if (show.refFound && matched && show.refFound.some(f => f.vertex === index)) return;   // (the finder's dots stand in for these)
+    // once the finder has looked, only the vertices it found are drawn as dots; the rest stay invisible (hover still works)
+    const dot = make("circle", { cx: vertex[0], cy: sy(vertex[1]), r: DOT, fill: show.refFound ? "transparent" : COLORS.vertexAssigned, stroke: "transparent", "stroke-width": 0.03 });
     place(dot, DOT, [T.vertexTip(index), describe("x", vertex[0], rx), describe("y", vertex[1], ry)].join("\n"));
     svg.appendChild(dot);
   });

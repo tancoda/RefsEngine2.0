@@ -401,7 +401,7 @@ function applyRefs() {
   refCands.forEach((c, i) => { const steps = refsSeen.get(c.row.join(",")); if (steps) refResults[i] = steps; });
   // (a vertex already on the starting square, with just the root step, has nothing to fold)
   refFound = Object.entries(refResults).filter(([, steps]) => steps.length >= 2).map(([k, steps]) => ({
-    index: Number(k), xy: refCands[k].xy, folds: steps.length - 1, label: `${T.vertexTip(refCands[k].vertex)}\n${T.folds(steps.length - 1)}` }));
+    index: Number(k), vertex: refCands[k].vertex, xy: refCands[k].xy, folds: steps.length - 1, label: `${T.vertexTip(refCands[k].vertex)}\n${T.folds(steps.length - 1)}` }));
   showFound(refFound.length);
   if (refFound.length === 0) {
     $("refs-status").textContent = T.refsNone;

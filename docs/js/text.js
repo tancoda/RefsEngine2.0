@@ -20,11 +20,10 @@ export const TEXT = {
     "wiggle-btn": { text: "Wiggle", title: "Floating point precision error; attempt to rectify" },
     "wiggle-cp": { text: "Download updated .cp", title: "The wiggled .cp" },
     "wiggle-fold": { text: "Download updated .fold", title: "The wiggled .fold" },
-    "hint": { text: "Scroll over the pattern to zoom, drag to move. Click a vertex to show its reference sequence (refs without dots are not in the database)." },
+    "hint": { text: "Click a vertex to show its reference sequence. Scroll to zoom; drag to move." },
     "reset-view": { text: "Reset zoom" },
     "refs-heading": { text: "References" },
     "refs-recommended": { text: "Recommended", title: "The suggested reference" },
-    "refs-first": { text: "Solution 1", title: "The simplest reference" },
     "refs-prev": { title: "The previous vertex" },
     "refs-next": { title: "The next vertex" },
   },
@@ -41,10 +40,10 @@ export const TEXT = {
     "> [Website](https://www.adroitorigami.com)",
     "> [Instagram](https://www.instagram.com/tankoda/)",
   ],
-  islandsLabel: n => `This file has ${n} separate patterns. Pick the one to work on:`,
+  islandsLabel: n => `This file has ${n} patterns to choose from.`,
   islandName: i => `Piece ${i}`,
   islandCaption: creases => `${creases} crease${s(creases)}`,
-  islandsLoose: n => `${n} non-square patterns were left out.`,
+  islandsLoose: n => `(${n} patterns were left out)`,
   lightMode: "Light mode",
   darkMode: "Dark mode",
 
@@ -63,11 +62,6 @@ export const TEXT = {
     { label: "Old Dragon (broken, try wiggler)", file: "old-dragon-messy.cp" },
     { label: "Example batch (multiple files)", file: "sample-batch.cp" },
   ],
-
-  // ---------- the little icons next to "Info" (hold the mouse over one) ----------
-  tldrNotSquare: (w, h) => `The paper is not square (${w.toPrecision(6)} x ${h.toPrecision(6)})`,
-  tldrAlmostOnGrid: n => `${n} crease(s) are not quite 22.5° (red glow in the pattern). Wiggling may fix.`,
-  tldrNoExact: (n, total) => `${n} of ${total} coordinates are unknown (red dots in the pattern). Wiggling may fix.`,
 
   // ---------- wiggling ----------
   wiggling: "Wiggling...",
@@ -95,8 +89,6 @@ export const TEXT = {
   refsNone: "None of this pattern's vertices are in the reference database.",
   refsError: msg => `Error: ${msg}`,
   folds: n => `${n} fold${s(n)}`,
-  refsCount: (pos, n) => `${pos} of ${n}`,
-  refsFound: n => `${n} found`,
   targetCoords: (x, y) => `x = ${x} \n y = ${y}`,
   serverUnreachable: "Could not reach the server. Is `python server.py` running?",
 
@@ -131,6 +123,11 @@ export const TEXT = {
   edgeOffGrid: (ei, a, b, deg) => `Edge ${ei} (vertices ${a}-${b}) is not 22.5° (off by ${deg} degrees)`,
   edgeTwice: (a, b, was, now) => `Edge between vertices ${a} and ${b} is drawn as both ${was} and ${now}`,
   edgesCross: (e, f, c) => `Edges ${e} and ${f} cross each other.\n x1: ${c[0]}; y1: ${c[1]};\n x2: ${c[2]}; y2: ${c[3]};\n x3: ${c[4]}; y3: ${c[5]};\n x4: ${c[6]}; y4: ${c[7]};`,
+  
+  turned45: "Diagonal crease pattern was detected and rotated.",
+  brokenWarning: "This pattern appears broken; try wiggling.",
+  notSquareWarning: "Warning: this crease pattern is not square",
+  refsFoundLine: (x,n) => `References found for ${x}/${n} vertices.`,
 
   // ---------- the wiggler could not do it ----------
   wiggleSome: (n, list, more) => `Could not find exact coordinates for ${n} vertex(es) (${list}${more ? ", ..." : ""}); there is not enough structure to decide them.`,

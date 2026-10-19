@@ -112,7 +112,14 @@ async function loadPatternText(name, text) {
   catch (err) { setStatus(T.couldNotRead(err.message), true); return; }
   let found = { islands: [], loose: 0 };
   try { found = findIslands(segments); } catch (err) { console.warn("island scan failed:", err); }
-  if (found.islands.length < 2) { showIslands([], type, null); handlePattern({ name, type, segments }); return; }
+  // only pieces with a square bounding box are offered; if none is square, offer them all rather than nothing
+  const squares = found.islands.filter(i => i.square);
+  if (squares.length > 0 && squares.length < found.islands.length) found = { islands: squares, loose: found.loose + found.islands.length - squares.length };
+  if (found.islands.length < 2) {
+    showIslands([], type, null);
+    handlePattern({ name, type, segments: found.islands.length === 1 ? found.islands[0].segments : segments });
+    return;
+  }
   const pick = i => {                                    // load one piece (the biggest to begin with)
     showIslands(found, type, i, pick);
     handlePattern({ name: `${name} (${T.islandName(i + 1).toLowerCase()})`, type, segments: found.islands[i].segments });
@@ -156,11 +163,12 @@ $("cp-file").addEventListener("click", () => { $("cp-file").value = ""; });
 // parse -> clean -> node -> snap -> draw, then the references
 async function handlePattern({ name, type, segments, wiggled = null }) {
   try {
-    const { box, graph, snapped, view, problems, original } = preparePattern(segments, type);
+    const { box, graph, snapped, problems, original, turned } = preparePattern(segments, type);
     resetZoom(canvas);
-    refsState = { graph, view, original, square: box.square };
+    refsState = { graph, snapped, original, square: box.square };
     $("refs-target").textContent = "";
     refsRequest++; refFound = null; refPick = null; refOrder = []; refCursor = null;
+    showFound(null);
     $("refsWorkspace").replaceChildren();
     $("refs-status").textContent = "";
     updateRefsUI();
@@ -169,9 +177,10 @@ async function handlePattern({ name, type, segments, wiggled = null }) {
     $("problem-list").textContent = problems.join("\n");
     $("problem-list").parentElement.hidden = problems.length === 0;
     if (problems.length > 0) console.warn(`${problems.length} problem(s):`, problems);
-    showWiggle({ name, graph, snapped, view, problems, wiggled });
-    showTldr({ box, snapped, view });
+    showWiggle({ name, graph, snapped, problems, wiggled });
+    showPatternWarnings({ box, graph, snapped, wiggled });
     const lines = [T.loaded(name, type),
+      ...(turned ? [T.turned45 ?? "The sheet was a diamond (turned 45°): it has been turned 45° counterclockwise."] : []),
       T.matched(snapped.stats.matched, snapped.stats.coordCount, snapped.stats.maxD)];
     if (!box.square) lines.push(T.notSquareNoRefs(box.width, box.height));
     if (problems.length > 0) lines.push("", T.problemCount(problems.length));
@@ -192,14 +201,19 @@ async function handlePattern({ name, type, segments, wiggled = null }) {
 // ---------------------------------------------------------------------------
 let wiggleSource = null;                 // what the Wiggle button works on: { name, graph, snapped, before }
 let wiggleResult = null;                 // the result being shown, for the downloads
-const metrics = (problems, snapped, view) =>
-  ({ problems: problems.length, unmatched: snapped.stats.coordCount - snapped.stats.matched, offGrid: view.badEdges.length });
+const metrics = (problems, snapped) =>
+  ({ problems: problems.length, unmatched: snapped.stats.coordCount - snapped.stats.matched, offGrid: snapped.turfEdges.length });
 
-function showWiggle({ name, graph, snapped, view, problems, wiggled }) {
-  wiggleSource = { name, graph, snapped, before: metrics(problems, snapped, view) };
+// Wiggle is only offered for a pattern that looks like a slightly broken 22.5-degree pattern (snap.js decides: the
+// pattern is mostly on the 22.5-degree grid, and something in it is a near miss or has no exact value). A pattern with
+// creases at other angles is not broken, so it is not offered, whatever else is unusual about it.
+const canWiggle = snapped => snapped.turf.size > 0 || snapped.turfEdges.length > 0;
+
+function showWiggle({ name, graph, snapped, problems, wiggled }) {
+  wiggleSource = { name, graph, snapped, before: metrics(problems, snapped) };
   wiggleResult = wiggled;
-  $("wiggle-box").hidden = problems.length === 0 && !wiggled;
-  $("wiggle-btn").hidden = problems.length === 0 || !!wiggled;
+  $("wiggle-box").hidden = !canWiggle(snapped) && !wiggled;
+  $("wiggle-btn").hidden = !canWiggle(snapped) || !!wiggled;
   $("wiggle-cp").hidden = $("wiggle-fold").hidden = !wiggled;
   $("wiggle-msg").replaceChildren();
   if (!wiggled) return;
@@ -249,25 +263,24 @@ $("wiggle-btn").addEventListener("click", async event => {
   }
   result.clean = check.graph;                         // what is saved: the cleaned pattern (straight-through vertices removed)
   result.removed = check.graph.merged;
-  result.report = { before, after: metrics(check.problems, check.snapped, check.view) };
+  result.report = { before, after: metrics(check.problems, check.snapped) };
   await handlePattern({ name: T.wiggledName(name.replace(/\.[^.]*$/, "")), type: "fold", segments: result.segments, wiggled: result });
 });
 
-// The short version of what is wrong, as icons next to "Info" (web/icons; if a picture is missing, the symbol shows).
-const TLDR_ICONS = { square: "icons/not-square.svg", angles: "icons/angles.svg", points: "icons/points.svg" };
-const TLDR_SYMBOLS = { square: "▭", angles: "∠", points: "⋯" };
-function showTldr({ box, snapped, view }) {
-  const items = [];
-  if (!box.square) items.push(["square", T.tldrNotSquare(box.width, box.height)]);
-  const off = view.badEdges.length;
-  if (off) items.push(["angles", T.tldrAlmostOnGrid(off)]);
-  const unmatched = snapped.stats.coordCount - snapped.stats.matched;
-  if (unmatched) items.push(["points", T.tldrNoExact(unmatched, snapped.stats.coordCount)]);
-  $("tldr").replaceChildren(...items.map(([kind, tip]) => {
-    const img = Object.assign(document.createElement("img"), { className: "tldr-icon", src: TLDR_ICONS[kind], alt: tip, title: tip });
-    img.addEventListener("error", () => img.replaceWith(Object.assign(document.createElement("span"), { className: "tldr-icon", textContent: TLDR_SYMBOLS[kind], title: tip })));
-    return img;
-  }));
+// The two lines above the pattern: how many vertices have references (white), and what is wrong with the pattern (red).
+const hasFourCorners = graph => [[-1, -1], [1, -1], [1, 1], [-1, 1]].every(([x, y]) =>
+  graph.vertices.some(v => Math.abs(v[0] - x) < 1e-4 && Math.abs(v[1] - y) < 1e-4));       // (files that need wiggling are a little off)
+function showPatternWarnings({ box, graph, snapped, wiggled }) {
+  const warnings = [];
+  // (a wiggle can only help a pattern that looks like a slightly broken 22.5 pattern, and one already wiggled has had its go)
+  if (!wiggled && canWiggle(snapped)) warnings.push(T.brokenWarning ?? "this crease pattern appears broken, try wiggling");
+  if (!box.square || !hasFourCorners(graph)) warnings.push(T.notSquareWarning ?? "crease pattern is not square");
+  $("cp-warnings").replaceChildren(...warnings.map(text => Object.assign(document.createElement("div"), { textContent: text })));
+}
+// found = how many vertices have references; null: nothing to say (yet)
+function showFound(found) {
+  const n = refsState?.graph.vertices.length ?? 0;
+  $("cp-found").textContent = found === null ? "" : T.refsFoundLine?.(found, n) ?? `references found for ${found}/${n} vertices`;
 }
 
 // ---------------------------------------------------------------------------
@@ -276,7 +289,7 @@ function showTldr({ box, snapped, view }) {
 // vertices off the paper's edge, the one with the most creases, then the fewest folds.
 // ---------------------------------------------------------------------------
 const refsSeen = new Map();            // what the database says about a vertex (by its exact coordinates): steps, or null. Never changes.
-let refsState = null;                  // { graph, view, original, square } of the pattern on screen
+let refsState = null;                  // { graph, snapped, original, square } of the pattern on screen
 let refCands = [];                     // the vertices looked up: { xy, row: [mx, nx, dx, my, ny, dy], deg }
 let refResults = {};                   // candidate index -> steps
 let refFound = null;                   // [{ index, xy, folds, label }] once looked up
@@ -288,18 +301,18 @@ let refsRequest = 0;                   // newest request wins
 
 function drawCp() {
   if (!refsState) return;
-  drawPattern(canvas, tooltip, refsState.graph, refsState.view,
+  drawPattern(canvas, tooltip, refsState.graph, refsState.snapped,
     { original: refsState.original, refFound, refPoint: refPick == null ? null : refCands[refPick]?.xy, onVertexClick: pickDot });
 }
 
 // every vertex with exact coordinates, and how many creases end at it
 function refCandidates() {
-  const { graph, view } = refsState;
+  const { graph, snapped } = refsState;
   const degree = graph.vertices.map(() => 0);
   graph.edges.forEach(([a, b]) => { degree[a]++; degree[b]++; });
   const cands = [];
   graph.vertices.forEach((xy, i) => {
-    const [rx, ry] = view.exact[i];
+    const [rx, ry] = snapped.exact[i];
     if (rx && ry) cands.push({ xy, row: [...rx, ...ry], deg: degree[i], vertex: i });
   });
   return cands;
@@ -382,12 +395,14 @@ function applyRefs() {
   $("refs-target").textContent = "";
   refPick = null; refFound = null; refResults = {}; refOrder = []; refRecommended = null; refCursor = null;
   $("refsWorkspace").replaceChildren();
+  showFound(null);
   if (!refsState) { updateRefsUI(); return; }
   if (!refsState.square) { $("refs-status").textContent = T.refsNeedSquare; updateRefsUI(); return; }
   refCands.forEach((c, i) => { const steps = refsSeen.get(c.row.join(",")); if (steps) refResults[i] = steps; });
   // (a vertex already on the starting square, with just the root step, has nothing to fold)
   refFound = Object.entries(refResults).filter(([, steps]) => steps.length >= 2).map(([k, steps]) => ({
     index: Number(k), xy: refCands[k].xy, folds: steps.length - 1, label: `${T.vertexTip(refCands[k].vertex)}\n${T.folds(steps.length - 1)}` }));
+  showFound(refFound.length);
   if (refFound.length === 0) {
     $("refs-status").textContent = T.refsNone;
   } else {

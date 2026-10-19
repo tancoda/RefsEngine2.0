@@ -75,7 +75,6 @@
     #bar label.primary, #bar select, #bar button, #bar .pop { flex: 0 0 auto; white-space: nowrap; }
     #bar label.primary { padding: .35rem .9rem; }
     #bar.no-name #file-name { display: none; }
-    #tldr { display: none; }   /* no little icons: the Info button just turns red when there are problems */
     #bar select { flex: 0 1 auto; min-width: 4.5rem; }
 
     details > summary { cursor: pointer; font-weight: 600; }
@@ -105,8 +104,9 @@
     #status { margin-top: .6rem; white-space: pre-wrap; font: 13px/1.5 ui-monospace, Consolas, monospace; }
     #info details { margin-top: .5rem; }
     #problem-list { white-space: pre-wrap; color: var(--err); margin: .25rem 0; font: 13px/1.5 ui-monospace, Consolas, monospace; }
-    #tldr { margin-left: .4rem; }
-    .tldr-icon { height: 1.35em; width: auto; vertical-align: -.3em; margin-left: .3rem; }
+    #cp-status { margin-bottom: .6rem; font-size: .9rem; }
+    #cp-found { color: var(--text); min-height: 1.4em; }      /* white (the page's text colour), not grey; the room is kept so nothing jumps */
+    #cp-warnings > div { color: var(--err); }
 
     #wiggle-box { margin: .5rem 0 .25rem; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; font-size: .85rem; }
     #wiggle-msg { color: var(--muted); flex: 1 1 14rem; }
@@ -129,6 +129,9 @@
     #islands-label small { display: block; margin-top: .2rem; }
     #about-body p, #hint, #status, #wiggle-msg > div, #refs-status, #refs-target, .caption { white-space: pre-line; }   /* so a \n in text.js is a line break */
     #about-body p { margin: .5rem 0; }
+    .head > .group { margin-left: auto; }   /* References <fill> Recommended <fill> < x of n > : the free room is split between the two gaps */
+    #refs-status:empty { display: none; }
+    #refs-status { flex: 1 0 100%; }
     .group { display: inline-flex; align-items: center; gap: .6rem; white-space: nowrap; }   /* a group of controls moves to the next line as a whole, never split */
     .head { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; min-height: 2rem; }
     #cp-canvas { display: block; width: 100%; max-width: 44rem; aspect-ratio: 1; margin: .5rem auto 0; }
@@ -180,7 +183,7 @@
       <select id="sample-btn" title="Load an example pattern"></select>
       <span id="file-name">.cp or .fold</span>
     </div>
-  <details id="info" class="pop"><summary><span id="info-summary">Info</span><span id="tldr" hidden></span>
+  <details id="info" class="pop"><summary><span id="info-summary">Info</span>
     <button id="wiggle-btn" type="button" hidden>Wiggle</button></summary>
     <div class="panel"><button class="close" type="button" aria-label="Close" title="Close">&#10005;</button>
     <div id="status">No file loaded yet.</div>
@@ -209,6 +212,7 @@
 
   <div class="main">
     <div class="card">
+      <div id="cp-status"><div id="cp-found"></div><div id="cp-warnings"></div></div>
       <div class="toolbar">
         <small id="hint">Scroll over</small>
         <button id="reset-view" type="button">Reset view</button>

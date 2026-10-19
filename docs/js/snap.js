@@ -7,7 +7,7 @@ import { TEXT as T } from "./text.js";
 //   graph.vertices --uniqueCoords--> { C, VC }      short list of distinct values
 //   buildLibrary  --> sorted table of every (m, n, D) value in [-1, 1]
 //   C --snapValue--> one match (or null) per distinct value
-//   everything --snapGraph--> exact vertices + problems + warnings + stats
+//   everything --snapGraph--> exact vertices + problems + stats + which vertices are broken
 //
 // DATA SHAPES
 //   Recipe  : [m, n, D]       value = (m + n*sqrt(2)) / D, always REDUCED
@@ -15,7 +15,7 @@ import { TEXT as T } from "./text.js";
 //                             a reduced recipe is the only recipe for its value.
 //   Library : { values: Float64Array (sorted ascending),
 //               recipes: Int32Array (3 numbers per entry: m, n, D) }
-//   Match   : { recipe, value, dist, ambiguous }   recipe is null if no match
+//   Match   : { recipe, value, dist }   recipe is null if no match
 
 const SQRT2 = Math.SQRT2;
 
@@ -44,6 +44,13 @@ export const SNAP_DEFAULTS = {
   maxN: 64,         // largest |n| in the library
   angleTol: 1e-9,   // allowed error, in units of 22.5 degrees, on snapped edges
 };
+
+// "Looks like a 22.5-degree pattern" (in units of 22.5 degrees, how far an edge may be from the grid):
+const LEGIT_ANGLE = 1e-4;   // a coordinate gets the big search only next to edges this exactly on the grid
+// Real noise in a 22.5-degree pattern is far smaller than this (measured: under 0.001 units of 22.5 degrees, a few short
+// creases up to 0.01), while deliberate creases at other angles that happen to lie close to the grid are not (0.02 and up).
+const NEAR_ANGLE = 0.01;    // a crease this close to the grid (units of 22.5 degrees) but not on it is a near miss: noise
+const GRID_SHARE = 0.985;    // a pattern counts as a 22.5-degree pattern if this share of its creases is on the grid or a near miss
 
 // ---------------------------------------------------------------------------
 // STEP 1: collect the distinct coordinate values
@@ -157,7 +164,7 @@ let wideMisses = 0;
 function resetWideBudget() { wideMisses = 0; }
 
 function searchRange(x, tol, { maxD, maxN }) {
-  let best = null, second = Infinity;
+  let best = null;
   for (let D = 1; D <= maxD; D++) {
     for (let n = -maxN; n <= maxN; n++) {
       const base = D * x - n * SQRT2;
@@ -166,13 +173,11 @@ function searchRange(x, tol, { maxD, maxN }) {
         const value = (m + n * SQRT2) / D;
         const dist = Math.abs(value - x);
         if (dist > tol) continue;
-        if (!best || dist < best.dist) { if (best) second = best.dist; best = { recipe: [m, n, D], value, dist }; }
-        else if (dist < second) second = dist;
+        if (!best || dist < best.dist) best = { recipe: [m, n, D], value, dist };
       }
     }
   }
-  if (!best) return null;
-  return { ...best, ambiguous: second <= tol && second < 10 * best.dist };
+  return best;
 }
 
 function wideSearch(x, tol) {
@@ -185,11 +190,10 @@ function wideSearch(x, tol) {
   return null;
 }
 
-// Input : x (float), library, tol
+// Input : x (float), library, tol, wide (also try the big search when the library has nothing)
 // Output: Match
-// A match needs |entry - x| <= tol. It is flagged AMBIGUOUS if the runner-up
-// is also within tol and not at least 10x farther away than the best one.
-function snapValue(x, library, tol) {
+// A match needs |entry - x| <= tol.
+function snapValue(x, library, tol, wide = true) {
   const i = binarySearchLB(library, x);
 
   // the two nearest entries always sit among these four neighbours of the insertion point
@@ -204,19 +208,13 @@ function snapValue(x, library, tol) {
   const best = candidates[0];
   if (best.dist > tol) {
     // not in the library: look directly through the much larger range before giving up
-    const wide = wideSearch(x, Math.min(tol, WIDE.tol));
-    if (wide) return wide;
-    return { recipe: null, value: null, dist: best.dist, ambiguous: false };
+    // (snapGraph asks for this itself, and only for coordinates that look legitimate)
+    const found = wide ? wideSearch(x, Math.min(tol, WIDE.tol)) : null;
+    if (found) return found;
+    return { recipe: null, value: null, dist: best.dist };
   }
-
-  const secondDist = candidates.length > 1 ? candidates[1].dist : Infinity;
   const { m, n, D, value } = best.entry;
-  return {
-    recipe: [m, n, D],
-    value,
-    dist: best.dist,
-    ambiguous: secondDist <= tol && secondDist < 10 * best.dist,
-  };
+  return { recipe: [m, n, D], value, dist: best.dist };
 }
 
 // ---------------------------------------------------------------------------
@@ -228,20 +226,18 @@ function snapValue(x, library, tol) {
 // Output: {
 //   exact    : per vertex, [recipeX, recipeY] (either may be null)
 //   problems : things that stop the pattern being used
-//   warnings : suspicious but usable (ambiguous matches)
 //   stats    : { coordCount, matched, coverage, maxD }
 // }
 export function snapGraph(graph, options = {}) {
   const opts = { ...SNAP_DEFAULTS, ...options };
   const { vertices, edges } = graph;
   const problems = [];
-  const warnings = [];
 
   // 1. distinct coordinates, then the library, then snap each distinct value once
   const { C, VC } = uniqueCoords(vertices, opts.mergeEps);
   const library = buildLibrary(opts);
   resetWideBudget();
-  const matches = C.map(c => snapValue(c, library, opts.tol));
+  const matches = C.map(c => snapValue(c, library, opts.tol, false));      // (the library only, for now)
 
   // 2. which vertices use each distinct coordinate (so messages can point at them)
   const users = C.map(() => []);
@@ -251,12 +247,51 @@ export function snapGraph(graph, options = {}) {
   });
   const where = ci => T.whereVertices(users[ci].slice(0, 5).join(", "), users[ci].length > 5);
 
-  // 3. unmatched coordinates are problems, ambiguous matches are warnings
+  // 2b. the creases at each vertex, and how far each is from the 22.5-degree grid (in units of 22.5 degrees)
+  const incident = vertices.map(() => []);
+  const offOf = edges.map(([a, b], ei) => {
+    incident[a].push(ei); incident[b].push(ei);
+    const units = Math.atan2(vertices[b][1] - vertices[a][1], vertices[b][0] - vertices[a][0]) / (Math.PI / 8);
+    return Math.abs(units - Math.round(units));
+  });
+  const other = (ei, v) => (edges[ei][0] === v ? edges[ei][1] : edges[ei][0]);
+  const known = v => matches[VC[v][0]].recipe !== null && matches[VC[v][1]].recipe !== null;     // a vertex with exact values: "confident"
+
+  // 2c. the big search is the one that finds false matches by chance, so it only runs for a coordinate whose vertex
+  // looks like a real 22.5-degree vertex: every crease on the grid, and one of them leading to a confident vertex.
+  // (A value it finds makes its vertex confident, which can open the next one: so it repeats until nothing changes.)
+  const looksLegit = v => incident[v].length > 0 && incident[v].every(ei => offOf[ei] <= LEGIT_ANGLE) && incident[v].some(ei => known(other(ei, v)));
+  const gaveUp = new Set();
+  for (let changed = true; changed;) {
+    changed = false;
+    C.forEach((c, ci) => {
+      if (matches[ci].recipe !== null || gaveUp.has(ci) || !users[ci].some(looksLegit)) return;
+      const hit = wideSearch(c, Math.min(opts.tol, WIDE.tol));
+      if (hit) { matches[ci] = hit; changed = true; } else gaveUp.add(ci);
+    });
+  }
+
+  // 2d. is this a 22.5-degree pattern at all? Only then can anything in it be "broken". A pattern with creases at other
+  // angles has coordinates outside this world, so unmatched coordinates there are not mistakes and Wiggle cannot help.
+  const gridShare = edges.length ? offOf.filter(o => o <= NEAR_ANGLE).length / edges.length : 0;
+  const is225 = gridShare >= GRID_SHARE;
+
+  // the vertices that are really broken (the problems list, and the "try wiggling" suggestion): no exact value, all
+  // creases (nearly) on the grid, and either one of them leads to a confident vertex or one is a little off the grid.
+  const turf = new Set();
+  if (is225) vertices.forEach((_, v) => {
+    if (known(v) || incident[v].length === 0) return;
+    if (!incident[v].every(ei => offOf[ei] <= NEAR_ANGLE)) return;
+    if (incident[v].some(ei => known(other(ei, v)) || offOf[ei] > 1e-6)) turf.add(v);
+  });
+
+  // the creases that are almost (not quite) on the grid, in a 22.5-degree pattern
+  const turfEdges = is225 ? edges.map((_, ei) => ei).filter(ei => offOf[ei] > 1e-6 && offOf[ei] <= NEAR_ANGLE) : [];
+
+  // 3. unmatched coordinates in the turf are problems
   matches.forEach((match, ci) => {
     if (match.recipe === null) {
-      problems.push(T.coordNoMatch(C[ci], where(ci), match.dist));
-    } else if (match.ambiguous) {
-      warnings.push(T.coordAmbiguous(C[ci], where(ci), JSON.stringify(match.recipe)));
+      if (users[ci].some(v => turf.has(v))) problems.push(T.coordNoMatch(C[ci], where(ci), match.dist));
     }
   });
 
@@ -272,7 +307,7 @@ export function snapGraph(graph, options = {}) {
     const dy = recipeValue(ryb) - recipeValue(rya);
     const units = Math.atan2(dy, dx) / (Math.PI / 8);
     const off = Math.abs(units - Math.round(units));
-    if (off > opts.angleTol && off <= 0.05) {            // (an edge far from the grid is an ordinary crease; only a near miss is a mistake)
+    if (is225 && off > opts.angleTol && off <= NEAR_ANGLE) {      // (an edge far from the grid is an ordinary crease; only a near miss is a mistake)
       problems.push(T.edgeOffGrid(ei, a, b, (off * 22.5).toFixed(4)));
     }
   });
@@ -285,5 +320,5 @@ export function snapGraph(graph, options = {}) {
     coverage: C.length ? matched.length / C.length : 1,
     maxD: matched.reduce((mx, m) => Math.max(mx, m.recipe[2]), 0),
   };
-  return { exact, problems, warnings, stats };
+  return { exact, problems, stats, turf, turfEdges };
 }

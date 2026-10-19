@@ -80,21 +80,6 @@ export function mergeDegree2(graph, { sinTol = 1e-7 } = {}) {
   return { ...graph, vertices: newVertices, edges: newEdges, merged };
 }
 
-// Indices of edges that are ALMOST at a multiple of 22.5 degrees but not quite: probably a mistake (or rounding noise
-// that Wiggle can fix). An edge far from the grid is an ordinary crease and is not reported. Judged from the FLOAT
-// coordinates. Units of 22.5 degrees: closer than tolUnits is exact enough, farther than nearUnits is deliberate.
-export function offGridEdges(graph, tolUnits = 1e-6, nearUnits = 0.05) {
-  const bad = [];
-  graph.edges.forEach(([a, b], ei) => {
-    const dx = graph.vertices[b][0] - graph.vertices[a][0];
-    const dy = graph.vertices[b][1] - graph.vertices[a][1];
-    const units = Math.atan2(dy, dx) / (Math.PI / 8);
-    const off = Math.abs(units - Math.round(units));
-    if (off > tolUnits && off <= nearUnits) bad.push(ei);
-  });
-  return bad;
-}
-
 // ---------------------------------------------------------------------------
 // Border check that does NOT assume the paper is the whole square.
 // Only the BOUNDING BOX of the border has to be the square [-1,1]^2; the
@@ -302,4 +287,4 @@ export function assignBorder(graph) {
     return [a, b, onOutside ? "b" : type === "v" ? "v" : "m"];   // (an assignment is never changed, except the outline is the border)
   });
   return { ...graph, edges: newEdges, problems };
-}
+}

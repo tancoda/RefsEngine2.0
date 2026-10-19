@@ -83,17 +83,6 @@ function clearBest(cands) {
   return null;
 }
 
-// the edges that are truly off the 22.5-degree grid (more than classTol units: not a matter of noise)
-export function gridReport(graph, classTol = 0.05) {
-  const off = [];
-  graph.edges.forEach(([a, b], ei) => {
-    const dx = graph.vertices[b][0] - graph.vertices[a][0], dy = graph.vertices[b][1] - graph.vertices[a][1];
-    const units = Math.atan2(dy, dx) / (Math.PI / 8);
-    if (Math.hypot(dx, dy) > 1e-3 && Math.abs(units - Math.round(units)) > classTol) off.push(ei);
-  });
-  return { off };
-}
-
 // ---------------------------------------------------------------------------
 function wiggleOnce(graph, snapped, options = {}) {
   const opt = {

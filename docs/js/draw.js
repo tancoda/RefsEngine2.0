@@ -3,7 +3,7 @@
 // black dots; click one to see how to fold it.
 //
 //   graph : { vertices: [[x, y], ...], edges: [[i, j], ...] }   in [-1, 1]
-//   view  : { exact: [[recipeX, recipeY], ...], badEdges }       a recipe is [m, n, D] = (m + n*sqrt2) / D, or null
+//   snapped : { exact: [[recipeX, recipeY], ...] }                a recipe is [m, n, D] = (m + n*sqrt2) / D, or null
 //   show  : { original, refFound, refPoint, onVertexClick }      original = the segments as uploaded;
 //           refFound = [{ index, xy, label }], refPoint = the vertex showing, onVertexClick(index)
 
@@ -13,7 +13,7 @@ import { borderLoop } from "./clean.js";
 import { setRadius, tagCircle } from "./zoom.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
-const DOT_PROBLEM = 0.014, DOT = 0.0087, DOT_HOVER = 0.0147, REF_DOT = 0.0113, REF_PICKED = 0.0227;
+const DOT = 0.0087, DOT_HOVER = 0.0147, REF_DOT = 0.0113, REF_PICKED = 0.0227;
 const MINUS = "−";
 
 // [m, n, D] -> "(3 - 2√2)/4", "-√2/4", "1/2", "-1 + √2", "0"
@@ -42,7 +42,7 @@ const describe = (name, value, recipe) => {
     : T.noExactTip(name, unit);
 };
 
-export function drawPattern(svg, tooltip, graph, view, show = {}) {
+export function drawPattern(svg, tooltip, graph, snapped, show = {}) {
   const make = (name, attrs) => {
     const el = svg.ownerDocument.createElementNS(SVG_NS, name);
     for (const [key, value] of Object.entries(name === "circle" ? { ...attrs, ...tagCircle(attrs) } : attrs)) el.setAttribute(key, String(value));
@@ -63,11 +63,6 @@ export function drawPattern(svg, tooltip, graph, view, show = {}) {
 
   const loop = borderLoop(graph);                             // the paper (the border may cut off corners)
   if (loop) svg.appendChild(make("polygon", { points: loop.map(v => `${graph.vertices[v][0]},${sy(graph.vertices[v][1])}`).join(" "), fill: COLORS.paper, stroke: "none", "pointer-events": "none" }));
-
-  for (const ei of view.badEdges ?? []) {                     // edges almost (but not quite) on the 22.5-degree grid: a red glow under the crease
-    const [a, b] = graph.edges[ei];
-    svg.appendChild(segment([graph.vertices[a], graph.vertices[b]], { stroke: COLORS.problemGlow, "stroke-opacity": 0.35, "stroke-width": 12, "stroke-linecap": "round" }));
-  }
 
   // the pattern as uploaded, bottom to top: aux, valley, mountain, edge
   for (const [type, color] of [["a", COLORS.aux], ["v", COLORS.valley], ["m", COLORS.mountain], ["b", COLORS.edge]]) {
@@ -97,13 +92,12 @@ export function drawPattern(svg, tooltip, graph, view, show = {}) {
     svg.appendChild(dot);
   }
 
-  graph.vertices.forEach((vertex, index) => {                 // the other vertices (red: no exact value)
-    const [rx, ry] = view.exact[index];
+  graph.vertices.forEach((vertex, index) => {                 // the other vertices
+    const [rx, ry] = snapped.exact[index];
     const matched = rx !== null && ry !== null;
     if (show.refFound && matched) return;                     // (the finder's dots stand in for these)
-    if (!matched) svg.appendChild(make("circle", { cx: vertex[0], cy: sy(vertex[1]), r: 0.035, fill: COLORS.problemGlow, "fill-opacity": 0.3, "pointer-events": "none" }));
-    const dot = make("circle", { cx: vertex[0], cy: sy(vertex[1]), r: matched ? DOT : DOT_PROBLEM, fill: matched ? COLORS.vertexAssigned : COLORS.vertexProblem, stroke: "transparent", "stroke-width": 0.03 });
-    place(dot, matched ? DOT : DOT_PROBLEM, [T.vertexTip(index), describe("x", vertex[0], rx), describe("y", vertex[1], ry)].join("\n"));
+    const dot = make("circle", { cx: vertex[0], cy: sy(vertex[1]), r: DOT, fill: COLORS.vertexAssigned, stroke: "transparent", "stroke-width": 0.03 });
+    place(dot, DOT, [T.vertexTip(index), describe("x", vertex[0], rx), describe("y", vertex[1], ry)].join("\n"));
     svg.appendChild(dot);
   });
 

@@ -5,13 +5,11 @@ export const COLORS = {
   mountain: "#ff0000",
   valley: "#0000ff",
   edge: "#000000",              // the border of the paper
-  aux: "#00fff2",
+  aux: "#999999",
   paper: "#f2f2f2",
 
   // the vertices
   vertexAssigned: "#000000",    // a coordinate that matched an exact value
-  vertexProblem: "#cf0000",     // no exact value
-  problemGlow: "#ff0000",       // the soft halo under a vertex with no exact value, and under a crease that is almost on the grid
   refDot: "#000000",            // a vertex the reference database knows
   refPicked: "#ffe600",         // the one whose sequence is showing
   refPickedOutline: "#000000",

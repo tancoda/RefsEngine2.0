@@ -278,8 +278,10 @@ function showPatternWarnings({ box, graph, snapped, wiggled }) {
   $("cp-warnings").replaceChildren(...warnings.map(text => Object.assign(document.createElement("div"), { textContent: text })));
 }
 // found = how many vertices have references; null: nothing to say (yet)
+// (the four corners of the square are left out of everything: not counted, not dots; they are the starting square itself)
+const isCorner = v => Math.abs(Math.abs(v[0]) - 1) < 1e-4 && Math.abs(Math.abs(v[1]) - 1) < 1e-4;
 function showFound(found) {
-  const n = refsState?.graph.vertices.length ?? 0;
+  const n = refsState ? refsState.graph.vertices.filter(v => !isCorner(v)).length : 0;
   $("cp-found").textContent = found === null ? "" : T.refsFoundLine?.(found, n) ?? `references found for ${found}/${n} vertices`;
 }
 
@@ -400,7 +402,7 @@ function applyRefs() {
   if (!refsState.square) { $("refs-status").textContent = T.refsNeedSquare; updateRefsUI(); return; }
   refCands.forEach((c, i) => { const steps = refsSeen.get(c.row.join(",")); if (steps) refResults[i] = steps; });
   // (a vertex already on the starting square, with just the root step, has nothing to fold)
-  refFound = Object.entries(refResults).filter(([, steps]) => steps.length >= 2).map(([k, steps]) => ({
+  refFound = Object.entries(refResults).filter(([k, steps]) => steps.length >= 2 && !isCorner(refCands[k].xy)).map(([k, steps]) => ({
     index: Number(k), vertex: refCands[k].vertex, xy: refCands[k].xy, folds: steps.length - 1, label: `${T.vertexTip(refCands[k].vertex)}\n${T.folds(steps.length - 1)}` }));
   showFound(refFound.length);
   if (refFound.length === 0) {
